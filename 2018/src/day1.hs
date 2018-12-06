@@ -1,27 +1,33 @@
+import Data.Void
 import qualified Data.Set as S
 
+import Text.Megaparsec
+import Text.Megaparsec.Char
+import Text.Megaparsec.Char.Lexer
+
+import Util
+
 -- 1a: sum a list
-day1a_data :: IO [Integer]
-day1a_data = map r <$> lines <$> readFile "../data/1a"
-  where r :: String -> Integer
-        r ('+':n) = read n
-        r ('-':n) = negate (read n)
+
+pSInt :: Parser Integer
+pSInt = (single '+' *> decimal)
+    <|> (negate <$ single '-' <*> decimal)
+
+day1a_parser :: Parser [Integer]
+day1a_parser = many (pSInt <* eol)
+
+day1a_solve :: [Integer] -> Either Void Integer
+day1a_solve = Right . sum
 
 day1a_main :: IO ()
-day1a_main = print =<< day1a_solve <$> day1a_data
-
-day1a_solve :: [Integer] -> Integer
-day1a_solve = sum
+day1a_main = generic_main "../data/1a" day1a_parser day1a_solve show
 
 -- 1b: running sums of a cyclic list, find the first repetition
-day1b_data :: IO [Integer]
-day1b_data = day1a_data
-
 day1b_main :: IO ()
-day1b_main = print =<< day1b_solve <$> day1b_data
+day1b_main = generic_main "../data/1a" day1a_parser day1b_solve show
 
-day1b_solve :: [Integer] -> Integer
-day1b_solve xs = firstRepetition $ scanl (+) 0 $ cycle xs
+day1b_solve :: [Integer] -> Either Void Integer -- No error other than non-termination
+day1b_solve xs = Right $ firstRepetition $ scanl (+) 0 $ cycle xs
   where firstRepetition :: [Integer] -> Integer
         firstRepetition xs = go S.empty xs
         go seen [] = error "cycle not infinite?"

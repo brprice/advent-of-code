@@ -1,6 +1,12 @@
 import Data.Char
 import Data.Function
 import Data.List
+import Data.Void
+
+import Text.Megaparsec
+import Text.Megaparsec.Char
+
+import Util
 
 -- 5a: given a word in the free group on [a..z] (inverse given by capitals), reduce the word
 -- how long is the reduced word?
@@ -8,16 +14,13 @@ import Data.List
 data FGElt a = Elt a | Inv a
 data FG a = FG [FGElt a]
 
-day5a_data :: IO (FG Char)
-day5a_data = parse <$> readFile "../data/5a"
-
-parse :: String -> FG Char
-parse = FG . map p . filter isAlpha
-  where p c | isUpper c = Inv (toLower c)
-            | otherwise = Elt c
+day5a_parser :: Parser (FG Char)
+day5a_parser = FG <$> many elt <* eol
+  where elt = Elt <$> lowerChar
+          <|> Inv . toLower <$> upperChar
 
 day5a_main :: IO ()
-day5a_main = print =<< day5a_solve <$> day5a_data
+day5a_main = generic_main "../data/5a" day5a_parser day5a_solve show
 
 -- reduce the word
 reduce :: Eq a => FG a -> FG a
@@ -34,26 +37,25 @@ reduce (FG xs) = FG $ go' [] xs
 len :: FG a -> Int
 len (FG xs) = length xs
 
-day5a_solve :: FG Char -> Int
-day5a_solve = len . reduce
+day5a_solve :: FG Char -> Either Void Int
+day5a_solve = pure . len . reduce
 
 shw :: FG Char -> String
 shw (FG elts) = map shw' elts
   where shw' (Elt a) = a
         shw' (Inv a) = toUpper a
 
+
 -- 5b: Map to the free group on ['a'..'z']\\[c], for some c, by taking c and c^-1 to identity
 -- i.e. delete all instances of (Elt c) and (Inv c) for some c
 -- what is the length of the shortest reduced such word
-day5b_data :: IO (FG Char)
-day5b_data = day5a_data
 
 day5b_main :: IO ()
-day5b_main = print =<< day5b_solve <$> day5b_data
+day5b_main = generic_main "../data/5a" day5a_parser day5b_solve show
 
 -- We'll also give what the best char was
-day5b_solve :: FG Char -> (Int,Char)
-day5b_solve = minimumBy (compare`on`fst) . map (\(c,xs) -> (len (reduce xs) , c)) . allRemovals
+day5b_solve :: FG Char -> Either Void (Int,Char)
+day5b_solve = pure . minimumBy (compare`on`fst) . map (\(c,xs) -> (len (reduce xs) , c)) . allRemovals
   where allRemovals (FG xs) = map (\c -> (c , FG $ deleteAll c xs)) ['a'..'z']
         deleteAll c [] = []
         deleteAll c (Elt x:xs) | x == c = deleteAll c xs
