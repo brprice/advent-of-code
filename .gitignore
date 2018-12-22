@@ -1,2 +1,7 @@
 *~
+*.hi
+*.o
+*.prof
 2018/data/
+2018/src/day?
+2018/src/day??
