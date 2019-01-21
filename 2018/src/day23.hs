@@ -46,20 +46,18 @@ type Bounds = (Int, Int)
 vertices :: Cube -> [V3]
 vertices (V3 x y z, V3 x' y' z') = [V3 a b c | a<-[x,x'], b<-[y,y'], c<-[z,z']]
 
-intersect :: Cube -> Bot -> Bool
-intersect (V3 x y z, V3 x' y' z') (Bot b@(V3 bx by bz) r)
+closest :: V3 -> Cube -> V3
+closest (V3 px py pz) (V3 x y z, V3 x' y' z')
   = let clamp l h u | u < l = l
                     | u > h = h
                     | otherwise = u
-        closest = V3 (clamp x x' bx) (clamp y y' by) (clamp z z' bz)
-    in manhatten b closest <= r
+    in V3 (clamp x x' px) (clamp y y' py) (clamp z z' pz)
+
+intersect :: Cube -> Bot -> Bool
+intersect c (Bot p r) = manhatten p (closest p c) <= r
 
 contain :: Cube -> Bot -> Bool
 contain c (Bot pb r) = all ((<=r).manhatten pb) $ vertices c
-
-stats :: [Bot] -> Cube -> Bounds
-stats bs c = (length $ filter (contain c) bs
-             ,length $ filter (intersect c) bs)
 
 split :: Cube -> [Cube]
 split (V3 xm ym zm, V3 xM yM zM) = let dx = xM-xm
@@ -80,6 +78,9 @@ split (V3 xm ym zm, V3 xM yM zM) = let dx = xM-xm
 size :: Cube -> Integer
 size (V3 xm ym zm, V3 xM yM zM) = (fromIntegral $ xM-xm+1)*(fromIntegral $ yM-ym+1)*(fromIntegral $ zM-zm+1)
 
+centre :: Cube -> V3
+centre (V3 xm ym zm, V3 xM yM zM) = V3 ((xm+xM)`div`2) ((ym+yM)`div`2) ((zm+zM)`div`2)
+
 -- Find all points with maximal coverage, (and also how well covered they are)
 day23b_solve' :: [Bot] -> (Int, [Cube])
 day23b_solve' bs = let xs = map (_x . _pos) bs
@@ -89,32 +90,33 @@ day23b_solve' bs = let xs = map (_x . _pos) bs
                        q = V3 (maximum xs) (maximum ys) (maximum zs)
                        -- initially: a cube containing all bots
                        -- use Set as a poor-mans priority queue
-                   in go (-1) [] $ S.singleton (prio (p,q), (p,q))
+                   in go (-1) [] $ S.singleton (ub (p,q), (p,q))
   where -- keep track of best minimum so far, and all cubes that have min=max=best
         go best bestCubes search
           = case S.maxView search of
               Nothing -> (best, bestCubes)
-              Just (((mx,mn),c),search')
-                -> case (compare mn best, compare mx best) of
-                     (_, LT) -> go best bestCubes search' -- this cube can be pruned
-                     (EQ,EQ) -> go best (c:bestCubes) search' -- this cube is full of good points
-                     (GT, _) -> go mn [] $ S.filter ((>=mn).upper.fst) search -- update best, reprocess this cube
-                     _ -> go best bestCubes  -- can't deduce anything useful, let's split this cube
-                        $ S.union search'
-                        $ S.fromList
-                        $ filter ((>=best).upper.fst)
-                        $ map (\cu -> (prio cu,cu)) $ split c
+              Just ((mx,c),search')
+                -> let ctr = sample c
+                   in if mx < best
+                      then go best bestCubes search' -- this cube can be pruned
+                      else if ctr > best
+                           then go ctr [] $ S.filter ((>=ctr).fst) search -- update best, reprocess this cube
+                           else if mx == best && lb c == best
+                                then go best (c:bestCubes) search' -- this cube is full of good points
+                                else go best bestCubes  -- can't deduce anything useful, let's split this cube
+                                   $ S.union search'
+                                   $ S.fromList
+                                   $ filter ((>=best).fst)
+                                   $ map (\cu -> (ub cu,cu)) $ split c
 
-        upper (u,_) = u
-        -- we'll prioritise finding a good maximum, and break ties with the minimum
-        -- and keep min and max around as they are nescessary for pruning
-        prio c = let (mn,mx) = stats bs c
-                 in (mx,mn)
+        ub c = length $ filter (intersect c) bs
+        lb c = length $ filter (contain c) bs
+        sample c = length $ filter (\(Bot p r) -> r >= manhatten p (centre c)) bs
 
 -- Actually want closest point to origin which has maximal coverage
 day23b_solve :: [Bot] -> Either Void Int
 day23b_solve bots = let cubes = snd $ day23b_solve' bots
-                    in Right $ minimum $ map (manhatten (V3 0 0 0)) $ concatMap vertices cubes
+                    in Right $ minimum $ map (manhatten (V3 0 0 0)) $ map (closest (V3 0 0 0)) cubes
 
 day23b_main :: IO ()
 day23b_main = generic_main "../data/23a" day23a_parser day23b_solve show
