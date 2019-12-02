@@ -16,3 +16,9 @@ executable day1
                        bytestring ^>=0.10,
                        conduit ^>= 1.3
   default-language:    Haskell2010
+
+executable day2
+  main-is:             Day2.hs
+  build-depends:       base ^>=4.12,
+                       vector ^>=0.12
+  default-language:    Haskell2010
