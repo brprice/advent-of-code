@@ -1,0 +1,5 @@
+/data/
+haskell/.ghc.environment.*
+haskell/dist-newstyle/
+rust/*/Cargo.lock
+rust/*/target/
