@@ -8,7 +8,7 @@ enum Dir {
     L,
     R,
 }
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 struct Point<T> {
     x: T,
     y: T,
@@ -68,6 +68,14 @@ fn l1(p: &Point<f32>) -> f32 {
     f32::abs(p.x) + f32::abs(p.y)
 }
 
+fn lenl1(l: &Seg) -> i32 {
+    i32::abs(l.start.x - l.end.x) + i32::abs(l.start.y - l.end.y)
+}
+
+fn distl1(u: &Point<i32>, v: &Point<f32>) -> f32 {
+    f32::abs(u.x as f32 - v.x) + f32::abs(u.y as f32 - v.y)
+}
+
 fn main() {
     let data = fs::read_to_string("../../data/day3").unwrap();
     let parse = |s: &str| -> (Dir, i32) {
@@ -120,7 +128,13 @@ fn main() {
     let mut min = Point { x: 0.0, y: 0.0 };
     let mut minl1 = 0.0;
 
+    let mut shortest = Point { x: 0.0, y: 0.0 };
+    let mut short = 0.0;
+    let mut steps1 = 0.0;
+    let mut steps2;
+
     for s in wire1 {
+        steps2 = 0.0;
         for t in &wire2 {
             match s.intersection(t) {
                 Some(x) => {
@@ -129,13 +143,26 @@ fn main() {
                         min = x;
                         minl1 = xl1
                     }
+                    let extra1 = distl1(&s.start, &x);
+                    let extra2 = distl1(&t.start, &x);
+                    let sh = steps1 + extra1 + steps2 + extra2;
+                    if short == 0.0 || short > sh {
+                        shortest = x;
+                        short = sh;
+                    }
                 }
                 None => {}
             }
+            steps2 += lenl1(t) as f32;
         }
+        steps1 += lenl1(&s) as f32;
     }
     println!(
-        "Intersection closest to origin: {}, has l1 norm of {}",
+        "Part a: intersection closest to origin: {}, has l1 norm of {}",
         min, minl1
+    );
+    println!(
+        "Part b: intersection with minimal path-distance to origin: {}, has dist of {}",
+        shortest, short
     );
 }
