@@ -72,7 +72,22 @@ fn asc_digits(min: Vec<Digit>, max: Vec<Digit>) -> impl Iterator<Item = Vec<u8>>
 fn main() {
     let lb = digits(240298);
     let ub = digits(784956);
-    let good = |ds: &Vec<u8>| ds.windows(2).any(|w| w[0] == w[1]);
-    let parta = asc_digits(lb, ub).filter(good).count();
+    let gooda = |ds: &Vec<u8>| ds.windows(2).any(|w| w[0] == w[1]);
+    let parta = asc_digits(lb.clone(), ub.clone()).filter(gooda).count();
     println!("parta: {}", parta);
+
+    let goodb = |ds: &Vec<u8>| match ds.len() {
+        0 => false,
+        1 => false,
+        2 => ds[0] == ds[1],
+        l => {
+            (ds[0] == ds[1] && ds[1] != ds[2])
+                || (ds[l - 3] != ds[l - 2] && ds[l - 2] == ds[l - 1])
+                || ds
+                    .windows(4)
+                    .any(|w| (w[0] != w[1] && w[1] == w[2] && w[2] != w[3]))
+        }
+    };
+    let partb = asc_digits(lb, ub).filter(goodb).count();
+    println!("partb: {}", partb);
 }
