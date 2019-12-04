@@ -6,6 +6,8 @@ type Digit = Int
 -- let's semi-brute force it: brute force until definitely avoided the bounds
 -- and then do the combinatorics
 
+-- Part b is more awkward for the combinatorics, let's just brute-force it
+
 -- NB: there are some nice identities about sums of binomial coefficients that apply here
 -- (in the sum [countPasswd ... | ...] cases)
 -- and would be a nice optimisation, but I expect we will be easily fast enough without them
@@ -47,9 +49,24 @@ digits n | n < 0 = error "digits<0"
         go m = let (q,r) = quotRem m 10
                in fromIntegral r : go q
 
+ascDigits :: Int -> Int -> [[Digit]]
+ascDigits 0 _ = [[]]
+ascDigits n b = concatMap (\d -> map (d:) $ ascDigits (n-1) d) [b..9]
+
+partb :: [Digit] -> [Digit] -> Int
+partb lb ub = if length lb /= length ub
+              then error "input lower and upper bounds are of different length"
+              else length $ filter (go Nothing) $ takeWhile (<=ub) $ dropWhile (<lb) $ ascDigits (length lb) 0
+  where go prv [a,b] = prv /= Just a && a == b
+        go prv (a:b:c:rest) = (prv /= Just a && a == b && b /= c) || go (Just a) (b:c:rest)
+        go _ _ = False
+
 main :: IO ()
 main = let -- puzzle input
            lb = digits 240298
            ub = digits 784956
            len = if length lb == length ub then length lb else error "input lower and upper bounds are of different length"
-       in print $ countPasswd (toInteger len) True (-1) (Just ub) (Just lb)
+       in do putStr "parta: "
+             print $ countPasswd (toInteger len) True (-1) (Just ub) (Just lb)
+             putStr "partb: "
+             print $ partb lb ub
