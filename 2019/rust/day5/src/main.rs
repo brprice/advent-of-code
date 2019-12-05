@@ -1,6 +1,6 @@
 use std::fs;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct IC {
     ip: usize,
     mem: Vec<i32>,
@@ -18,6 +18,10 @@ enum Op {
     Mul(Mode, Mode),
     In,
     Out(Mode),
+    Jit(Mode, Mode),
+    Jif(Mode, Mode),
+    Lt(Mode, Mode),
+    Eq(Mode, Mode),
     Halt,
 }
 
@@ -39,6 +43,10 @@ impl IC {
             2 => Op::Mul(modes.next().unwrap(), modes.next().unwrap()),
             3 => Op::In,
             4 => Op::Out(modes.next().unwrap()),
+            5 => Op::Jit(modes.next().unwrap(), modes.next().unwrap()),
+            6 => Op::Jif(modes.next().unwrap(), modes.next().unwrap()),
+            7 => Op::Lt(modes.next().unwrap(), modes.next().unwrap()),
+            8 => Op::Eq(modes.next().unwrap(), modes.next().unwrap()),
             99 => Op::Halt,
             _ => panic!("Unrecognised opcode: {}", op),
         }
@@ -85,6 +93,16 @@ impl IC {
         o
     }
 
+    fn run_ji(&mut self, dir: bool, am: Mode, bm: Mode) {
+        let a = self.read(self.ip + 1, am);
+        let b = self.read(self.ip + 2, bm);
+        if dir == (a != 0) {
+            self.ip = b as usize;
+        } else {
+            self.ip += 3;
+        }
+    }
+
     fn run1<I>(&mut self, input: &mut I) -> Option<Output>
     where
         I: Iterator<Item = i32>,
@@ -103,6 +121,22 @@ impl IC {
                 Some(Output::Cont)
             }
             Op::Out(m) => Some(Output::Out(self.run_out(m))),
+            Op::Jit(am, bm) => {
+                self.run_ji(true, am, bm);
+                Some(Output::Cont)
+            }
+            Op::Jif(am, bm) => {
+                self.run_ji(false, am, bm);
+                Some(Output::Cont)
+            }
+            Op::Lt(am, bm) => {
+                self.run_op2(|x, y| (x < y) as i32, am, bm);
+                Some(Output::Cont)
+            }
+            Op::Eq(am, bm) => {
+                self.run_op2(|x, y| (x == y) as i32, am, bm);
+                Some(Output::Cont)
+            }
             Op::Halt => None,
         }
     }
@@ -122,10 +156,12 @@ fn main() {
     let data = fs::read_to_string("../../data/day5").unwrap();
     // we trust the input, so just unwrap everything instead of doing error handling
     let mem: Vec<i32> = data.trim().split(',').map(|x| x.parse().unwrap()).collect();
-    let mut mach = IC { ip: 0, mem };
+    let mut macha = IC { ip: 0, mem };
+    let mut machb = macha.clone();
+
     let input = vec![1_i32];
     let mut input = input.iter().map(|x| *x);
-    let mut out = mach.run(&mut input).skip_while(|x| *x == 0_i32);
+    let mut out = macha.run(&mut input).skip_while(|x| *x == 0_i32);
     match out.next() {
         Some(out1) => match out.next() {
             None => println!("part a: {}", out1),
@@ -137,5 +173,21 @@ fn main() {
             ),
         },
         None => println!("part a, unknown failure, we only output zeros"),
+    }
+
+    let input = vec![5_i32];
+    let mut input = input.iter().map(|x| *x);
+    let mut out = machb.run(&mut input);
+    match out.next() {
+        Some(res) => match out.next() {
+            None => println!("part b: {}", res),
+            Some(b) => println!(
+                "part b, failure, multiple outputs: {},{},{:?}",
+                res,
+                b,
+                out.collect::<Vec<_>>()
+            ),
+        },
+        None => println!("part b, unknown failure, no output"),
     }
 }
