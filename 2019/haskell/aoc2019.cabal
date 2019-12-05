@@ -33,3 +33,10 @@ executable day4
   main-is:             Day4.hs
   build-depends:       base ^>=4.12
   default-language:    Haskell2010
+
+executable day5
+  main-is:             Day5.hs
+  build-depends:       base ^>=4.12,
+                       containers^>=0.6,
+                       mtl ^>=2.2
+  default-language:    Haskell2010
