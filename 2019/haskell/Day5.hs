@@ -14,12 +14,21 @@ main = do cts <- readFile "../data/day5"
             [a] -> putStrLn $ "part a: " ++ show a
             nzs -> putStrLn $ "part a: failure: non-zero output was " ++ show nzs
 
+          let resultb = evalState (run [5]) $ IC {ip = 0, mem=ops}
+          case resultb of
+            [b] -> putStrLn $ "part b: " ++ show b
+            _ -> putStrLn $ "part b: failure: non-singleton output was " ++ show resultb
+
 data IC = IC {ip :: Int, mem :: IM.IntMap Int} deriving Show
 data Mode = Pos | Imm deriving Enum
 data Op = Add Mode Mode
         | Mul Mode Mode
         | In
         | Out Mode
+        | Jit Mode Mode
+        | Jif Mode Mode
+        | Lt Mode Mode
+        | Eq Mode Mode
         | Halt
 
 getMem :: State IC Int
@@ -35,6 +44,9 @@ getMemMode Pos = do p <- getMem
 putMem :: Int -> Int -> State IC ()
 putMem dst v = modify (\IC{ip,mem} -> IC{ip,mem=IM.insert dst v mem})
 
+setIP :: Int -> State IC ()
+setIP ip = modify (\ic -> ic{ip})
+
 getOp :: State IC Op
 getOp = do opcode <- getMem
            let (ams,op) = opcode `quotRem` 100
@@ -44,6 +56,10 @@ getOp = do opcode <- getMem
                     2 -> Mul (argModes !! 0) (argModes !! 1)
                     3 -> In
                     4 -> Out (argModes !! 0)
+                    5 -> Jit (argModes !! 0) (argModes !! 1)
+                    6 -> Jif (argModes !! 0) (argModes !! 1)
+                    7 -> Lt (argModes !! 0) (argModes !! 1)
+                    8 -> Eq (argModes !! 0) (argModes !! 1)
                     99 -> Halt
                     _ -> error $ "Unrecognised opcode: " ++ show op
   where am :: Int -> [Mode]
@@ -63,6 +79,11 @@ run_in input = do dst <- getMem
 run_out :: Mode -> State IC Int
 run_out = getMemMode
 
+run_ji :: (Int -> Bool) -> Mode -> Mode -> State IC ()
+run_ji cond xm tm = do x <- getMemMode xm
+                       tgt <- getMemMode tm
+                       when (cond x) $ setIP tgt
+
 run :: [Int] -> State IC [Int]
 run input = do op <- getOp
                case op of
@@ -72,4 +93,12 @@ run input = do op <- getOp
                    [] -> error "Ran out of input!"
                    (i:is) -> run_in i >> run is
                  Out m -> (:) <$> run_out m <*> run input
+                 Jit am bm -> run_ji (/=0) am bm >> run input
+                 Jif am bm -> run_ji (==0) am bm >> run input
+                 Lt am bm -> run_op2 lt am bm >> run input
+                 Eq am bm -> run_op2 eq am bm >> run input
                  Halt -> pure []
+  where lt x y = c_bool $ x < y
+        eq x y = c_bool $ x == y
+        c_bool True = 1
+        c_bool False = 0
