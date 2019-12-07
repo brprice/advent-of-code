@@ -1,6 +1,8 @@
 use std::cmp::max;
+use std::collections::VecDeque;
 use std::fs;
 use std::iter::{once, repeat};
+use std::mem;
 
 #[derive(Clone)]
 struct IC {
@@ -77,16 +79,20 @@ impl IC {
         self.ip += 4;
     }
 
+    fn run_in1(&mut self, input: i32) {
+        let p = self.mem[self.ip + 1] as usize;
+        self.mem[p] = input;
+        self.ip += 2;
+    }
+
     fn run_in<I>(&mut self, input: &mut I)
     where
         I: Iterator<Item = i32>,
     {
-        let p = self.mem[self.ip + 1] as usize;
         match input.next() {
-            Some(i) => self.mem[p] = i,
+            Some(i) => self.run_in1(i),
             None => panic!("Input ran dry"),
         }
-        self.ip += 2;
     }
 
     fn run_out(&mut self, m: Mode) -> i32 {
@@ -154,6 +160,50 @@ impl IC {
     }
 }
 
+enum IO {
+    Out(IC, i32),
+    In(Box<dyn FnOnce(i32) -> IC>),
+    Halt,
+}
+
+impl IC {
+    fn run_to_io(mut self) -> IO {
+        loop {
+            match IC::op_arg_mode(self.mem[self.ip]) {
+                Op::Add(am, bm) => {
+                    self.run_op2(|x, y| x + y, am, bm);
+                }
+                Op::Mul(am, bm) => {
+                    self.run_op2(|x, y| x * y, am, bm);
+                }
+                Op::In => {
+                    return IO::In(Box::new(|input| {
+                        self.run_in1(input);
+                        self
+                    }))
+                }
+                Op::Out(m) => {
+                    let o = self.run_out(m);
+                    return IO::Out(self, o);
+                }
+                Op::Jit(am, bm) => {
+                    self.run_ji(true, am, bm);
+                }
+                Op::Jif(am, bm) => {
+                    self.run_ji(false, am, bm);
+                }
+                Op::Lt(am, bm) => {
+                    self.run_op2(|x, y| (x < y) as i32, am, bm);
+                }
+                Op::Eq(am, bm) => {
+                    self.run_op2(|x, y| (x == y) as i32, am, bm);
+                }
+                Op::Halt => return IO::Halt,
+            }
+        }
+    }
+}
+
 fn permutations(n: usize) -> impl Iterator<Item = Vec<usize>> {
     // not going to worry about setting the correct capacity
     fn choose_last(max: usize, v: Vec<usize>) -> impl Iterator<Item = Vec<usize>> {
@@ -189,6 +239,86 @@ fn run_chain_param(mach: &IC, params: &[i32], input: i32) -> i32 {
     c
 }
 
+struct Trace {
+    trace: usize,
+    trace_output: VecDeque<i32>,
+    init_input: Vec<Vec<i32>>,
+    upstream: Vec<usize>,
+    state: Vec<Option<IC>>, // None means it is being processed and waiting for input
+}
+
+impl Iterator for Trace {
+    type Item = i32;
+    fn next(&mut self) -> Option<i32> {
+        fn go(tr: &mut Trace, t: usize) -> Option<i32> {
+            let m = mem::replace(&mut tr.state[t], None).expect("Non-productive loop detected");
+            match m.run_to_io() {
+                IO::Out(m_new, o) => {
+                    tr.state[t] = Some(m_new);
+                    Some(o)
+                }
+                IO::In(f) => match tr.init_input[t].pop() {
+                    Some(i) => {
+                        tr.state[t] = Some(f(i));
+                        go(tr, t)
+                    }
+                    None => {
+                        let u = tr.upstream[t];
+                        if u == tr.trace && !tr.trace_output.is_empty() {
+                            let o = tr.trace_output.pop_front().unwrap();
+                            tr.state[t] = Some(f(o));
+                            go(tr, t)
+                        } else {
+                            match go(tr, tr.upstream[t]) {
+                                Some(i) => {
+                                    tr.state[t] = Some(f(i));
+                                    go(tr, t)
+                                }
+                                None => panic!("Machine {} starved for input", t),
+                            }
+                        }
+                    }
+                },
+                IO::Halt => None,
+            }
+        }
+        let o = go(self, self.trace);
+        match o {
+            Some(out) => self.trace_output.push_back(out),
+            None => {}
+        }
+        o
+    }
+}
+
+fn run_network_param_trace(
+    mach: &IC,
+    upstream: &[usize],
+    trace: usize,
+    params: &[i32],
+    input: (i32, usize),
+) -> Trace {
+    let mut state: Vec<Option<IC>> = Vec::with_capacity(upstream.len());
+    for _ in 0..params.len() {
+        state.push(Some(mach.clone()));
+    }
+    let mut init_input: Vec<Vec<i32>> = Vec::with_capacity(params.len());
+    for i in 0..params.len() {
+        if i == input.1 {
+            init_input.push(vec![input.0, params[i]]);
+        } else {
+            init_input.push(vec![params[i]]);
+        }
+    }
+    Trace {
+        trace,
+        init_input,
+        trace_output: VecDeque::new(),
+        upstream: upstream.to_vec(),
+        state,
+    }
+}
+
 fn main() {
     let data = fs::read_to_string("../../data/day7").unwrap();
     // we trust the input, so just unwrap everything instead of doing error handling
@@ -205,4 +335,16 @@ fn main() {
         mx = max(mx, res);
     }
     println!("part a: maximum thruster value is {}", mx);
+
+    let topo = &[4, 0, 1, 2, 3];
+    let mut mx = 0;
+    for p in permutations(5) {
+        let mut params = Vec::with_capacity(p.len());
+        for param in p {
+            params.push(5 + param as i32);
+        }
+        let res = run_network_param_trace(&mach, topo, 4, &params[..], (0, 0));
+        mx = max(mx, res.last().unwrap());
+    }
+    println!("part b: maximum loop-amplified thruster value is {}", mx);
 }
