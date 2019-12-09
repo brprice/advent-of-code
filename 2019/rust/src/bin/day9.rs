@@ -9,6 +9,7 @@ use num_traits::cast::ToPrimitive;
 
 use aoc2019::intcode::*;
 
+#[derive(Clone)]
 struct Sparse<T> {
     default: T,
     data: HashMap<usize, T>,
@@ -145,13 +146,17 @@ fn main() {
         .cloned()
         .enumerate()
         .collect();
-    let mut mach = IC::new(0, Sparse::new(zero(), mem));
+    let mach = IC::new(0, Sparse::new(zero(), mem));
     let mut input = once(one());
-    let output: Vec<_> = mach.run(&mut input).collect();
+    let output: Vec<_> = mach.clone().run(&mut input).collect();
 
     if output.len() != 1 {
         println!("part a: errors detected: {:?}", output);
     } else {
         println!("part a: {}", output[0]);
     }
+
+    let mut inputb = once(BigIntWrapper::one() + one());
+    let outputb = mach.clone().run(&mut inputb).next().unwrap();
+    println!("part b: {}", outputb);
 }
