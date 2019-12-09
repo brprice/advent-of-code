@@ -69,7 +69,7 @@ impl<T, C: Vector<T>> IC<T, C> {
 }
 impl<T, C: Vector<T>> IC<T, C>
 where
-    T: Copy,
+    T: Clone,
     T: TryInto<usize>,
     T: From<u8>,
     T: Num,
@@ -78,12 +78,12 @@ where
     <T as TryInto<usize>>::Error: Debug,
 {
     fn get_op_mode(&self) -> Op {
-        let i = self.mem[self.ip];
-        let op = i % T::from(100);
+        let i = self.mem[self.ip].clone();
+        let op = i.clone() % T::from(100);
         let mut ams = i / T::from(100);
         let mut modes = std::iter::from_fn(|| {
-            let m = ams % T::from(10);
-            ams = ams / T::from(10);
+            let m = ams.clone() % T::from(10);
+            ams = ams.clone() / T::from(10);
             match m.try_into().expect("Bad mode") {
                 0 => Some(Mode::Pos),
                 1 => Some(Mode::Imm),
@@ -100,20 +100,23 @@ where
             7 => Op::Lt(modes.next().unwrap(), modes.next().unwrap()),
             8 => Op::Eq(modes.next().unwrap(), modes.next().unwrap()),
             99 => Op::Halt,
-            _ => panic!("Unrecognised opcode: {}", op),
+            op => panic!("Unrecognised opcode: {}", op),
         }
     }
 
     fn read(&self, a: usize, m: Mode) -> T {
-        let b = self.mem[a];
+        let b = self.mem[a].clone();
         match m {
-            Mode::Pos => self.mem[b.try_into().expect("read bad index")],
+            Mode::Pos => self.mem[b.try_into().expect("read bad index")].clone(),
             Mode::Imm => b,
         }
     }
 
     fn write_param(&mut self, p: usize, v: T) {
-        let q = self.mem[p].try_into().expect("write: bad param index");
+        let q = self.mem[p]
+            .clone()
+            .try_into()
+            .expect("write: bad param index");
         self.mem[q] = v;
     }
 
@@ -129,6 +132,7 @@ where
 
     fn run_in1(&mut self, input: T) {
         let p = self.mem[self.ip + 1]
+            .clone()
             .try_into()
             .expect("run_in1: bad param index");
         self.mem[p] = input;
