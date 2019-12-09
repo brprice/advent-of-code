@@ -19,8 +19,10 @@ executable day1
 
 executable day2
   main-is:             Day2.hs
+  other-modules:       Intcode
   build-depends:       base ^>=4.12,
-                       vector ^>=0.12
+                       containers^>=0.6,
+                       mtl ^>=2.2
   default-language:    Haskell2010
 
 executable day3
@@ -36,6 +38,7 @@ executable day4
 
 executable day5
   main-is:             Day5.hs
+  other-modules:       Intcode
   build-depends:       base ^>=4.12,
                        containers^>=0.6,
                        mtl ^>=2.2
@@ -49,6 +52,7 @@ executable day6
 
 executable day7
   main-is:             Day7.hs
+  other-modules:       Intcode
   build-depends:       base ^>=4.12,
                        containers^>=0.6,
                        mtl ^>=2.2
