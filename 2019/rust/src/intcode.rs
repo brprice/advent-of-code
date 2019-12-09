@@ -1,6 +1,6 @@
 extern crate num;
 
-use num::Num;
+use num::{zero, Num, Zero};
 use std::convert::TryInto;
 use std::fmt::{Debug, Display};
 use std::fs::read_to_string;
@@ -23,6 +23,7 @@ where
     C: Vector<T>,
 {
     pub ip: usize,
+    pub rel_base: usize,
     pub mem: C,
     phantom: PhantomData<T>,
 }
@@ -45,23 +46,26 @@ enum Output<T> {
 enum Mode {
     Pos,
     Imm,
+    Rel,
 }
 enum Op {
-    Add(Mode, Mode),
-    Mul(Mode, Mode),
-    In,
+    Add(Mode, Mode, Mode),
+    Mul(Mode, Mode, Mode),
+    In(Mode),
     Out(Mode),
     Jit(Mode, Mode),
     Jif(Mode, Mode),
-    Lt(Mode, Mode),
-    Eq(Mode, Mode),
+    Lt(Mode, Mode, Mode),
+    Eq(Mode, Mode, Mode),
+    RB(Mode),
     Halt,
 }
 
-impl<T, C: Vector<T>> IC<T, C> {
+impl<T: Zero, C: Vector<T>> IC<T, C> {
     pub fn new(ip: usize, mem: C) -> IC<T, C> {
         IC {
             ip,
+            rel_base: zero(),
             mem,
             phantom: PhantomData,
         }
@@ -87,18 +91,36 @@ where
             match m.try_into().expect("Bad mode") {
                 0 => Some(Mode::Pos),
                 1 => Some(Mode::Imm),
+                2 => Some(Mode::Rel),
                 m => panic!("Unrecognised mode: {}", m),
             }
         });
         match op.try_into().expect("Bad opcode") {
-            1 => Op::Add(modes.next().unwrap(), modes.next().unwrap()),
-            2 => Op::Mul(modes.next().unwrap(), modes.next().unwrap()),
-            3 => Op::In,
+            1 => Op::Add(
+                modes.next().unwrap(),
+                modes.next().unwrap(),
+                modes.next().unwrap(),
+            ),
+            2 => Op::Mul(
+                modes.next().unwrap(),
+                modes.next().unwrap(),
+                modes.next().unwrap(),
+            ),
+            3 => Op::In(modes.next().unwrap()),
             4 => Op::Out(modes.next().unwrap()),
             5 => Op::Jit(modes.next().unwrap(), modes.next().unwrap()),
             6 => Op::Jif(modes.next().unwrap(), modes.next().unwrap()),
-            7 => Op::Lt(modes.next().unwrap(), modes.next().unwrap()),
-            8 => Op::Eq(modes.next().unwrap(), modes.next().unwrap()),
+            7 => Op::Lt(
+                modes.next().unwrap(),
+                modes.next().unwrap(),
+                modes.next().unwrap(),
+            ),
+            8 => Op::Eq(
+                modes.next().unwrap(),
+                modes.next().unwrap(),
+                modes.next().unwrap(),
+            ),
+            9 => Op::RB(modes.next().unwrap()),
             99 => Op::Halt,
             op => panic!("Unrecognised opcode: {}", op),
         }
@@ -109,42 +131,55 @@ where
         match m {
             Mode::Pos => self.mem[b.try_into().expect("read bad index")].clone(),
             Mode::Imm => b,
+            Mode::Rel => {
+                let p = if b >= zero() {
+                    self.rel_base + b.try_into().expect("read bad index")
+                } else {
+                    self.rel_base - (T::zero() - b).try_into().expect("read bad index")
+                };
+                self.mem[p as usize].clone()
+            }
         }
     }
 
-    fn write_param(&mut self, p: usize, v: T) {
-        let q = self.mem[p]
-            .clone()
-            .try_into()
-            .expect("write: bad param index");
-        self.mem[q] = v;
+    fn write_param(&mut self, p: usize, m: Mode, v: T) {
+        let q = self.mem[p].clone();
+        match m {
+            Mode::Pos => self.mem[q.try_into().expect("write: bad param index")] = v,
+            Mode::Rel => {
+                if q >= zero() {
+                    self.mem
+                        [self.rel_base.clone() + q.try_into().expect("write: bad param index")] = v
+                } else {
+                    self.mem[self.rel_base.clone()
+                        - (T::zero() - q).try_into().expect("write: bad param index")] = v
+                }
+            }
+            Mode::Imm => panic!("write_param: can't write to an Imm mode"),
+        }
     }
 
-    fn run_op2<F>(&mut self, f: F, am: Mode, bm: Mode)
+    fn run_op2<F>(&mut self, f: F, am: Mode, bm: Mode, cm: Mode)
     where
         F: FnOnce(T, T) -> T,
     {
         let a = self.read(self.ip + 1, am);
         let b = self.read(self.ip + 2, bm);
-        self.write_param(self.ip + 3, f(a, b));
+        self.write_param(self.ip + 3, cm, f(a, b));
         self.ip += 4;
     }
 
-    fn run_in1(&mut self, input: T) {
-        let p = self.mem[self.ip + 1]
-            .clone()
-            .try_into()
-            .expect("run_in1: bad param index");
-        self.mem[p] = input;
+    fn run_in1(&mut self, input: T, m: Mode) {
+        self.write_param(self.ip + 1, m, input);
         self.ip += 2;
     }
 
-    fn run_in<I>(&mut self, input: &mut I)
+    fn run_in<I>(&mut self, input: &mut I, m: Mode)
     where
         I: Iterator<Item = T>,
     {
         match input.next() {
-            Some(i) => self.run_in1(i),
+            Some(i) => self.run_in1(i, m),
             None => panic!("Input ran dry"),
         }
     }
@@ -165,21 +200,31 @@ where
         }
     }
 
+    fn run_rb(&mut self, m: Mode) {
+        let off = self.read(self.ip + 1, m);
+        if off >= zero() {
+            self.rel_base += off.try_into().expect("run_rb: bad offset")
+        } else {
+            self.rel_base -= (T::zero() - off).try_into().expect("run_rb: bad offset")
+        };
+        self.ip += 2;
+    }
+
     fn run1<I>(&mut self, input: &mut I) -> Option<Output<T>>
     where
         I: Iterator<Item = T>,
     {
         match self.get_op_mode() {
-            Op::Add(am, bm) => {
-                self.run_op2(|x, y| x + y, am, bm);
+            Op::Add(am, bm, cm) => {
+                self.run_op2(|x, y| x + y, am, bm, cm);
                 Some(Output::Cont)
             }
-            Op::Mul(am, bm) => {
-                self.run_op2(|x, y| x * y, am, bm);
+            Op::Mul(am, bm, cm) => {
+                self.run_op2(|x, y| x * y, am, bm, cm);
                 Some(Output::Cont)
             }
-            Op::In => {
-                self.run_in(input);
+            Op::In(m) => {
+                self.run_in(input, m);
                 Some(Output::Cont)
             }
             Op::Out(m) => Some(Output::Out(self.run_out(m))),
@@ -191,12 +236,16 @@ where
                 self.run_ji(false, am, bm);
                 Some(Output::Cont)
             }
-            Op::Lt(am, bm) => {
-                self.run_op2(|x, y| if x < y { T::one() } else { T::zero() }, am, bm);
+            Op::Lt(am, bm, cm) => {
+                self.run_op2(|x, y| if x < y { T::one() } else { T::zero() }, am, bm, cm);
                 Some(Output::Cont)
             }
-            Op::Eq(am, bm) => {
-                self.run_op2(|x, y| if x == y { T::one() } else { T::zero() }, am, bm);
+            Op::Eq(am, bm, cm) => {
+                self.run_op2(|x, y| if x == y { T::one() } else { T::zero() }, am, bm, cm);
+                Some(Output::Cont)
+            }
+            Op::RB(m) => {
+                self.run_rb(m);
                 Some(Output::Cont)
             }
             Op::Halt => None,
@@ -234,15 +283,15 @@ where
     pub fn run_to_io(mut self) -> IO<T, C> {
         loop {
             match self.get_op_mode() {
-                Op::Add(am, bm) => {
-                    self.run_op2(|x, y| x + y, am, bm);
+                Op::Add(am, bm, cm) => {
+                    self.run_op2(|x, y| x + y, am, bm, cm);
                 }
-                Op::Mul(am, bm) => {
-                    self.run_op2(|x, y| x * y, am, bm);
+                Op::Mul(am, bm, cm) => {
+                    self.run_op2(|x, y| x * y, am, bm, cm);
                 }
-                Op::In => {
+                Op::In(m) => {
                     return IO::In(Box::new(|input| {
-                        self.run_in1(input);
+                        self.run_in1(input, m);
                         self
                     }))
                 }
@@ -256,11 +305,14 @@ where
                 Op::Jif(am, bm) => {
                     self.run_ji(false, am, bm);
                 }
-                Op::Lt(am, bm) => {
-                    self.run_op2(|x, y| if x < y { T::one() } else { T::zero() }, am, bm);
+                Op::Lt(am, bm, cm) => {
+                    self.run_op2(|x, y| if x < y { T::one() } else { T::zero() }, am, bm, cm);
                 }
-                Op::Eq(am, bm) => {
-                    self.run_op2(|x, y| if x == y { T::one() } else { T::zero() }, am, bm);
+                Op::Eq(am, bm, cm) => {
+                    self.run_op2(|x, y| if x == y { T::one() } else { T::zero() }, am, bm, cm);
+                }
+                Op::RB(m) => {
+                    self.run_rb(m);
                 }
                 Op::Halt => return IO::Halt,
             }
