@@ -26,7 +26,7 @@ main = do mach <- readIntcode "../data/day7"
           putStr "part a: maximum thrusters "
           print $ maximum $ map (flip chained 0) $ permutations [0..4]
 
-          let looped ps i = let oss :: [[Int]]
+          let looped ps i = let oss :: [[Integer]]
                                 oss = zipWithL phased ps $ zipWith (++) ([i] : repeat []) $ rotateR oss
                             in last $ last oss
           putStr "part b: maximum loop-amplified thrusters "
