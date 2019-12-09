@@ -153,7 +153,7 @@ impl IC {
 }
 
 fn main() {
-    let data = fs::read_to_string("../../data/day5").unwrap();
+    let data = fs::read_to_string("../data/day5").unwrap();
     // we trust the input, so just unwrap everything instead of doing error handling
     let mem: Vec<i32> = data.trim().split(',').map(|x| x.parse().unwrap()).collect();
     let mut macha = IC { ip: 0, mem };

@@ -5,7 +5,7 @@ use std::hash::Hash;
 use std::iter::{empty, once, Iterator};
 
 fn main() {
-    let orbs = fs::read_to_string("../../data/day6").unwrap();
+    let orbs = fs::read_to_string("../data/day6").unwrap();
     let orbs = orbs.lines().map(|s| {
         let mut x = s.splitn(2, ')');
         (x.next().unwrap(), x.next().unwrap())

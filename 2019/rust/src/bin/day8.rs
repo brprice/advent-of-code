@@ -37,7 +37,7 @@ enum Colour {
 }
 
 fn main() {
-    let dat = fs::read_to_string("../../data/day8").unwrap();
+    let dat = fs::read_to_string("../data/day8").unwrap();
     let pix = dat.trim().chars().map(|x| x.to_digit(10).unwrap());
     let w = 25;
     let h = 6;
@@ -54,7 +54,7 @@ fn main() {
         });
     println!("part a: {}", ones * twos);
 
-    let dat = fs::read_to_string("../../data/day8").unwrap();
+    let dat = fs::read_to_string("../data/day8").unwrap();
     let layers = chunks(
         dat.trim().chars().map(|x| match x {
             '0' => Colour::Black,

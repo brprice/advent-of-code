@@ -28,7 +28,7 @@ impl From<std::num::ParseIntError> for Err {
 }
 
 fn main() -> Result<(), Err> {
-    let path = Path::new("../../data/day2");
+    let path = Path::new("../data/day2");
     let file = File::open(path)?;
     let ops: Vec<u32> = BufReader::new(file)
         .split(b',')

@@ -320,7 +320,7 @@ fn run_network_param_trace(
 }
 
 fn main() {
-    let data = fs::read_to_string("../../data/day7").unwrap();
+    let data = fs::read_to_string("../data/day7").unwrap();
     // we trust the input, so just unwrap everything instead of doing error handling
     let mem: Vec<i32> = data.trim().split(',').map(|x| x.parse().unwrap()).collect();
     let mach = IC { ip: 0, mem };

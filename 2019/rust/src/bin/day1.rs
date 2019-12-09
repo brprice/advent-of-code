@@ -3,7 +3,7 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 fn main() {
-    let path = Path::new("../../data/day1a");
+    let path = Path::new("../data/day1a");
     let file = File::open(path).unwrap();
     let lines = BufReader::new(file).lines();
     let tot: (i32, i32) = lines.fold((0, 0), |acc, l| {

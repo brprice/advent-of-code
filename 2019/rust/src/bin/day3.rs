@@ -77,7 +77,7 @@ fn distl1(u: &Point<i32>, v: &Point<f32>) -> f32 {
 }
 
 fn main() {
-    let data = fs::read_to_string("../../data/day3").unwrap();
+    let data = fs::read_to_string("../data/day3").unwrap();
     let parse = |s: &str| -> (Dir, i32) {
         let (d, l) = s.split_at(1);
         match d {
