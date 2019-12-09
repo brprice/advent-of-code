@@ -1,6 +1,6 @@
-use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::path::Path;
+use std::iter::empty;
+
+use aoc2019::intcode::*;
 
 #[derive(Debug)]
 enum Err {
@@ -28,15 +28,8 @@ impl From<std::num::ParseIntError> for Err {
 }
 
 fn main() -> Result<(), Err> {
-    let path = Path::new("../data/day2");
-    let file = File::open(path)?;
-    let ops: Vec<u32> = BufReader::new(file)
-        .split(b',')
-        .map(|x| Ok(String::from_utf8(x?)?.trim().parse()?))
-        .collect::<Result<_, Err>>()?;
-
-    let parta = run(12, 2, &mut ops.clone());
-
+    let ops = read_intcode("../data/day2");
+    let parta = run(12, 2, ops.clone());
     println!("part a: output for 1202 run is {}", parta);
 
     let target = 19690720;
@@ -46,7 +39,7 @@ fn main() -> Result<(), Err> {
     );
     'n: for n in 0..=99 {
         for v in 0..=99 {
-            if run(n, v, &mut ops.clone()) == target {
+            if run(n, v, ops.clone()) == target {
                 println!("part b: found noun = {}, verb = {}", n, v);
                 println!("part b: thus answer is {}", 100 * n + v);
                 break 'n;
@@ -57,23 +50,10 @@ fn main() -> Result<(), Err> {
     Ok(())
 }
 
-// who needs error handling?
-fn run(noun: u32, verb: u32, ops: &mut Vec<u32>) -> u32 {
+fn run(noun: i32, verb: i32, mut ops: Vec<i32>) -> i32 {
     ops[1] = noun;
     ops[2] = verb;
-    let mut ip = 0;
-    let mut i = ops[ip];
-    while i != 99 {
-        let d = ops[ip + 3] as usize;
-        let a = ops[ip + 1] as usize;
-        let b = ops[ip + 2] as usize;
-        match i {
-            1 => ops[d] = ops[a] + ops[b],
-            2 => ops[d] = ops[a] * ops[b],
-            _ => panic!("Invalid opcode: {}", i),
-        }
-        ip += 4;
-        i = ops[ip];
-    }
-    ops[0]
+    let mut mach = IC { ip: 0, mem: ops };
+    mach.run(&mut empty()).count();
+    mach.mem[0]
 }
