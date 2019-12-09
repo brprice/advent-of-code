@@ -1,21 +1,28 @@
+extern crate num;
+
+use num::Num;
+use std::convert::TryInto;
+use std::fmt::{Debug, Display};
 use std::fs::read_to_string;
 use std::path::Path;
 
 #[derive(Clone)]
-pub struct IC {
+pub struct IC<T> {
     pub ip: usize,
-    pub mem: Vec<i32>,
+    pub mem: Vec<T>,
 }
 
-pub fn read_intcode<P:AsRef<Path>>(path : P) -> Vec<i32> {
-
+pub fn read_intcode<P: AsRef<Path>>(path: P) -> Vec<i32> {
     // we trust the input, so just unwrap everything instead of doing error handling
     let data = read_to_string(path).expect("couldn't read file");
-    data.trim().split(',').map(|x| x.parse().expect("couldn't parse")).collect()
+    data.trim()
+        .split(',')
+        .map(|x| x.parse().expect("couldn't parse"))
+        .collect()
 }
-enum Output {
+enum Output<T> {
     Cont,
-    Out(i32),
+    Out(T),
 }
 enum Mode {
     Pos,
@@ -33,20 +40,29 @@ enum Op {
     Halt,
 }
 
-impl IC {
-    fn op_arg_mode(i: i32) -> Op {
-        let op = i % 100;
-        let mut ams = i / 100;
+impl<T> IC<T>
+where
+    T: Copy,
+    T: TryInto<usize>,
+    T: From<u8>,
+    T: Num,
+    T: PartialOrd,
+    T: Display,
+    <T as TryInto<usize>>::Error: Debug,
+{
+    fn op_arg_mode(i: T) -> Op {
+        let op = i % T::from(100);
+        let mut ams = i / T::from(100);
         let mut modes = std::iter::from_fn(|| {
-            let m = ams % 10;
-            ams /= 10;
-            match m {
+            let m = ams % T::from(10);
+            ams = ams / T::from(10);
+            match m.try_into().expect("Bad mode") {
                 0 => Some(Mode::Pos),
                 1 => Some(Mode::Imm),
                 m => panic!("Unrecognised mode: {}", m),
             }
         });
-        match op {
+        match op.try_into().expect("Bad opcode") {
             1 => Op::Add(modes.next().unwrap(), modes.next().unwrap()),
             2 => Op::Mul(modes.next().unwrap(), modes.next().unwrap()),
             3 => Op::In,
@@ -60,22 +76,22 @@ impl IC {
         }
     }
 
-    fn read(&self, a: usize, m: Mode) -> i32 {
+    fn read(&self, a: usize, m: Mode) -> T {
         let b = self.mem[a];
         match m {
-            Mode::Pos => self.mem[b as usize],
+            Mode::Pos => self.mem[b.try_into().expect("read bad index")],
             Mode::Imm => b,
         }
     }
 
-    fn write_param(&mut self, p: usize, v: i32) {
-        let q = self.mem[p] as usize;
+    fn write_param(&mut self, p: usize, v: T) {
+        let q = self.mem[p].try_into().expect("write: bad param index");
         self.mem[q] = v;
     }
 
     fn run_op2<F>(&mut self, f: F, am: Mode, bm: Mode)
     where
-        F: FnOnce(i32, i32) -> i32,
+        F: FnOnce(T, T) -> T,
     {
         let a = self.read(self.ip + 1, am);
         let b = self.read(self.ip + 2, bm);
@@ -83,15 +99,17 @@ impl IC {
         self.ip += 4;
     }
 
-    fn run_in1(&mut self, input: i32) {
-        let p = self.mem[self.ip + 1] as usize;
+    fn run_in1(&mut self, input: T) {
+        let p = self.mem[self.ip + 1]
+            .try_into()
+            .expect("run_in1: bad param index");
         self.mem[p] = input;
         self.ip += 2;
     }
 
     fn run_in<I>(&mut self, input: &mut I)
     where
-        I: Iterator<Item = i32>,
+        I: Iterator<Item = T>,
     {
         match input.next() {
             Some(i) => self.run_in1(i),
@@ -99,7 +117,7 @@ impl IC {
         }
     }
 
-    fn run_out(&mut self, m: Mode) -> i32 {
+    fn run_out(&mut self, m: Mode) -> T {
         let o = self.read(self.ip + 1, m);
         self.ip += 2;
         o
@@ -108,16 +126,16 @@ impl IC {
     fn run_ji(&mut self, dir: bool, am: Mode, bm: Mode) {
         let a = self.read(self.ip + 1, am);
         let b = self.read(self.ip + 2, bm);
-        if dir == (a != 0) {
-            self.ip = b as usize;
+        if dir == (a != T::from(0)) {
+            self.ip = b.try_into().expect("run_ji: bad jump destination");
         } else {
             self.ip += 3;
         }
     }
 
-    fn run1<I>(&mut self, input: &mut I) -> Option<Output>
+    fn run1<I>(&mut self, input: &mut I) -> Option<Output<T>>
     where
-        I: Iterator<Item = i32>,
+        I: Iterator<Item = T>,
     {
         match IC::op_arg_mode(self.mem[self.ip]) {
             Op::Add(am, bm) => {
@@ -142,20 +160,20 @@ impl IC {
                 Some(Output::Cont)
             }
             Op::Lt(am, bm) => {
-                self.run_op2(|x, y| (x < y) as i32, am, bm);
+                self.run_op2(|x, y| if x < y { T::one() } else { T::zero() }, am, bm);
                 Some(Output::Cont)
             }
             Op::Eq(am, bm) => {
-                self.run_op2(|x, y| (x == y) as i32, am, bm);
+                self.run_op2(|x, y| if x == y { T::one() } else { T::zero() }, am, bm);
                 Some(Output::Cont)
             }
             Op::Halt => None,
         }
     }
 
-    pub fn run<'a, I>(&'a mut self, input: &'a mut I) -> impl 'a + Iterator<Item = i32>
+    pub fn run<'a, I>(&'a mut self, input: &'a mut I) -> impl 'a + Iterator<Item = T>
     where
-        I: Iterator<Item = i32>,
+        I: Iterator<Item = T>,
     {
         std::iter::from_fn(move || self.run1(input)).filter_map(|o| match o {
             Output::Cont => None,
@@ -164,14 +182,23 @@ impl IC {
     }
 }
 
-pub enum IO {
-    Out(IC, i32),
-    In(Box<dyn FnOnce(i32) -> IC>),
+pub enum IO<T> {
+    Out(IC<T>, T),
+    In(Box<dyn FnOnce(T) -> IC<T>>),
     Halt,
 }
 
-impl IC {
-    pub fn run_to_io(mut self) -> IO {
+impl<T: 'static> IC<T>
+where
+    T: Copy,
+    T: TryInto<usize>,
+    T: From<u8>,
+    T: Num,
+    T: PartialOrd,
+    T: Display,
+    <T as TryInto<usize>>::Error: Debug,
+{
+    pub fn run_to_io(mut self) -> IO<T> {
         loop {
             match IC::op_arg_mode(self.mem[self.ip]) {
                 Op::Add(am, bm) => {
@@ -197,10 +224,10 @@ impl IC {
                     self.run_ji(false, am, bm);
                 }
                 Op::Lt(am, bm) => {
-                    self.run_op2(|x, y| (x < y) as i32, am, bm);
+                    self.run_op2(|x, y| if x < y { T::one() } else { T::zero() }, am, bm);
                 }
                 Op::Eq(am, bm) => {
-                    self.run_op2(|x, y| (x == y) as i32, am, bm);
+                    self.run_op2(|x, y| if x == y { T::one() } else { T::zero() }, am, bm);
                 }
                 Op::Halt => return IO::Halt,
             }
