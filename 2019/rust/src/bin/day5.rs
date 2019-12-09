@@ -2,7 +2,7 @@ use aoc2019::intcode::*;
 
 fn main() {
     let mem = read_intcode("../data/day5");
-    let mut macha = IC { ip: 0, mem };
+    let mut macha = IC::new(0, mem);
     let mut machb = macha.clone();
 
     let input = vec![1_i32];

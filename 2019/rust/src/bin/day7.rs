@@ -31,7 +31,7 @@ fn permutations(n: usize) -> impl Iterator<Item = Vec<usize>> {
     perm(n)
 }
 
-fn run_chain_param(mach: &IC<i32>, params: &[i32], input: i32) -> i32 {
+fn run_chain_param(mach: &IC<i32, Vec<i32>>, params: &[i32], input: i32) -> i32 {
     let mut c = input;
     for p in params {
         let mut is = vec![*p, c].into_iter();
@@ -45,7 +45,7 @@ struct Trace {
     trace_output: VecDeque<i32>,
     init_input: Vec<Vec<i32>>,
     upstream: Vec<usize>,
-    state: Vec<Option<IC<i32>>>, // None means it is being processed and waiting for input
+    state: Vec<Option<IC<i32, Vec<i32>>>>, // None means it is being processed and waiting for input
 }
 
 impl Iterator for Trace {
@@ -93,13 +93,13 @@ impl Iterator for Trace {
 }
 
 fn run_network_param_trace(
-    mach: &IC<i32>,
+    mach: &IC<i32, Vec<i32>>,
     upstream: &[usize],
     trace: usize,
     params: &[i32],
     input: (i32, usize),
 ) -> Trace {
-    let mut state: Vec<Option<IC<i32>>> = Vec::with_capacity(upstream.len());
+    let mut state: Vec<Option<IC<i32, Vec<i32>>>> = Vec::with_capacity(upstream.len());
     for _ in 0..params.len() {
         state.push(Some(mach.clone()));
     }
@@ -122,7 +122,7 @@ fn run_network_param_trace(
 
 fn main() {
     let mem = read_intcode("../data/day7");
-    let mach = IC { ip: 0, mem };
+    let mach = IC::new(0, mem);
 
     let mut mx = 0;
     for p in permutations(5) {

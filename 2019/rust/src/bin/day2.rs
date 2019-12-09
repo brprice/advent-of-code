@@ -53,7 +53,7 @@ fn main() -> Result<(), Err> {
 fn run(noun: i32, verb: i32, mut ops: Vec<i32>) -> i32 {
     ops[1] = noun;
     ops[2] = verb;
-    let mut mach = IC { ip: 0, mem: ops };
+    let mut mach = IC::new(0, ops);
     mach.run(&mut empty()).count();
     mach.mem[0]
 }

@@ -4,15 +4,33 @@ use num::Num;
 use std::convert::TryInto;
 use std::fmt::{Debug, Display};
 use std::fs::read_to_string;
+use std::marker::PhantomData;
+use std::ops::IndexMut;
 use std::path::Path;
+use std::str::FromStr;
 
-#[derive(Clone)]
-pub struct IC<T> {
-    pub ip: usize,
-    pub mem: Vec<T>,
+pub trait Vector<T>
+where
+    Self: IndexMut<usize, Output = T>,
+{
 }
 
-pub fn read_intcode<P: AsRef<Path>>(path: P) -> Vec<i32> {
+impl<T> Vector<T> for Vec<T> {}
+
+#[derive(Clone)]
+pub struct IC<T, C>
+where
+    C: Vector<T>,
+{
+    pub ip: usize,
+    pub mem: C,
+    phantom: PhantomData<T>,
+}
+
+pub fn read_intcode<P: AsRef<Path>, T: FromStr>(path: P) -> Vec<T>
+where
+    T::Err: Debug,
+{
     // we trust the input, so just unwrap everything instead of doing error handling
     let data = read_to_string(path).expect("couldn't read file");
     data.trim()
@@ -40,7 +58,16 @@ enum Op {
     Halt,
 }
 
-impl<T> IC<T>
+impl<T, C: Vector<T>> IC<T, C> {
+    pub fn new(ip: usize, mem: C) -> IC<T, C> {
+        IC {
+            ip,
+            mem,
+            phantom: PhantomData,
+        }
+    }
+}
+impl<T, C: Vector<T>> IC<T, C>
 where
     T: Copy,
     T: TryInto<usize>,
@@ -50,7 +77,8 @@ where
     T: Display,
     <T as TryInto<usize>>::Error: Debug,
 {
-    fn op_arg_mode(i: T) -> Op {
+    fn get_op_mode(&self) -> Op {
+        let i = self.mem[self.ip];
         let op = i % T::from(100);
         let mut ams = i / T::from(100);
         let mut modes = std::iter::from_fn(|| {
@@ -137,7 +165,7 @@ where
     where
         I: Iterator<Item = T>,
     {
-        match IC::op_arg_mode(self.mem[self.ip]) {
+        match self.get_op_mode() {
             Op::Add(am, bm) => {
                 self.run_op2(|x, y| x + y, am, bm);
                 Some(Output::Cont)
@@ -182,14 +210,15 @@ where
     }
 }
 
-pub enum IO<T> {
-    Out(IC<T>, T),
-    In(Box<dyn FnOnce(T) -> IC<T>>),
+pub enum IO<T, C: Vector<T>> {
+    Out(IC<T, C>, T),
+    In(Box<dyn FnOnce(T) -> IC<T, C>>),
     Halt,
 }
 
-impl<T: 'static> IC<T>
+impl<T: 'static, C: 'static> IC<T, C>
 where
+    C: Vector<T>,
     T: Copy,
     T: TryInto<usize>,
     T: From<u8>,
@@ -198,9 +227,9 @@ where
     T: Display,
     <T as TryInto<usize>>::Error: Debug,
 {
-    pub fn run_to_io(mut self) -> IO<T> {
+    pub fn run_to_io(mut self) -> IO<T, C> {
         loop {
-            match IC::op_arg_mode(self.mem[self.ip]) {
+            match self.get_op_mode() {
                 Op::Add(am, bm) => {
                     self.run_op2(|x, y| x + y, am, bm);
                 }
