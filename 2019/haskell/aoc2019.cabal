@@ -63,3 +63,11 @@ executable day8
   build-depends:       base ^>=4.12,
                        extra ^>=1.6
   default-language:    Haskell2010
+
+executable day9
+  main-is:             Day9.hs
+  other-modules:       Intcode
+  build-depends:       base ^>=4.12,
+                       containers^>=0.6,
+                       mtl ^>=2.2
+  default-language:    Haskell2010
