@@ -20,6 +20,6 @@ main = do mach <- readIntcode "../data/day2"
           putStrLn $ "part b: thus answer is " ++ show (100*n+v)
 
 runNV :: Integer -> Integer -> State IC [Integer]
-runNV n v = do IC{ip,mem} <- get
-               put $ IC{ip,mem=M.insert 1 n $ M.insert 2 v mem}
+runNV n v = do ic@IC{ip,mem} <- get
+               put $ ic{mem=M.insert 1 n $ M.insert 2 v mem}
                run []
