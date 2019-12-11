@@ -272,7 +272,7 @@ pub enum IO<T, C: Vector<T>> {
 impl<T: 'static, C: 'static> IC<T, C>
 where
     C: Vector<T>,
-    T: Copy,
+    T: Clone,
     T: TryInto<usize>,
     T: From<u8>,
     T: Num,

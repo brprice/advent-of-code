@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::hash::Hash;
 use std::ops::{Add, Div, Index, IndexMut, Mul, Rem, Sub};
 use std::str::FromStr;
 
@@ -9,30 +10,30 @@ use num_traits::cast::ToPrimitive;
 use crate::intcode::Vector;
 
 #[derive(Clone)]
-pub struct Sparse<T> {
+pub struct Sparse<I: Eq + Hash, T> {
     default: T,
-    data: HashMap<usize, T>,
+    data: HashMap<I, T>,
 }
 
-impl<T> Sparse<T> {
-    pub fn new(default: T, data: HashMap<usize, T>) -> Self {
+impl<I: Eq + Hash, T> Sparse<I, T> {
+    pub fn new(default: T, data: HashMap<I, T>) -> Self {
         Sparse { default, data }
     }
 }
 
-impl<T> Index<usize> for Sparse<T> {
+impl<I: Eq + Hash, T> Index<I> for Sparse<I, T> {
     type Output = T;
-    fn index(&self, i: usize) -> &T {
+    fn index(&self, i: I) -> &T {
         self.data.get(&i).unwrap_or(&self.default)
     }
 }
-impl<T: Clone> IndexMut<usize> for Sparse<T> {
-    fn index_mut(&mut self, i: usize) -> &mut T {
+impl<I: Eq + Hash, T: Clone> IndexMut<I> for Sparse<I, T> {
+    fn index_mut(&mut self, i: I) -> &mut T {
         self.data.entry(i).or_insert(self.default.clone())
     }
 }
 
-impl<T: Clone> Vector<T> for Sparse<T> {}
+impl<T: Clone> Vector<T> for Sparse<usize, T> {}
 
 // need a wrapper for TryInto<usize>, which then requires me to write all the trivial newtype trait
 // implementations. Sigh.
