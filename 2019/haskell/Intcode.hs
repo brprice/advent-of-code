@@ -3,6 +3,7 @@
 module Intcode where
 
 import Control.Monad.State
+import Data.Functor.Identity (Identity(Identity))
 import qualified Data.Map as M
 
 data IC = IC {ip :: Integer, relBase :: Integer, mem :: M.Map Integer Integer} deriving Show
@@ -91,20 +92,34 @@ run_rb m = do off <- getMemMode m
               put $ ic{relBase = relBase ic + off}
 
 run :: [Integer] -> State IC [Integer]
-run input = do op <- getOp
-               case op of
-                 Add am bm cm -> run_op2 (+) am bm cm >> run input
-                 Mul am bm cm -> run_op2 (*) am bm cm >> run input
-                 In m -> case input of
-                   [] -> error "Ran out of input!"
-                   (i:is) -> run_in i m >> run is
-                 Out m -> (:) <$> run_out m <*> run input
-                 Jit am bm -> run_ji (/=0) am bm >> run input
-                 Jif am bm -> run_ji (==0) am bm >> run input
-                 Lt am bm cm -> run_op2 lt am bm cm >> run input
-                 Eq am bm cm -> run_op2 eq am bm cm >> run input
-                 RB m -> run_rb m >> run input
-                 Halt -> pure []
+run inputStream = StateT $ Identity . flip go inputStream
+  where go :: IC -> [Integer] -> ([Integer],IC)
+        go ic input = case runToIO ic of
+                        ICIn f -> case input of
+                                    [] -> error "Ran out of input!"
+                                    (i:is) -> go (f i) is
+                        ICOut o ic' -> let (os,ic'') = go ic' input
+                                       in (o:os,ic'')
+                        ICHalt ic' -> ([],ic')
+
+-- For day 11, we can't get away with viewing running intcode as a function [Integer] -> [Integer].
+-- Massaging the above into a more useful form is annoyingly awkward,
+-- but it works well enough to get the day done.
+data ICIO = ICIn (Integer -> IC) | ICOut Integer IC | ICHalt IC
+
+runToIO :: IC -> ICIO
+runToIO ic = let (op,ic') = runState getOp ic
+             in case op of
+                  Add am bm cm -> runToIO $ execState (run_op2 (+) am bm cm) ic'
+                  Mul am bm cm -> runToIO $ execState (run_op2 (*) am bm cm) ic'
+                  In m -> ICIn $ \i -> execState (run_in i m) ic'
+                  Out m -> uncurry ICOut $ runState (run_out m) ic'
+                  Jit am bm -> runToIO $ execState (run_ji (/=0) am bm) ic'
+                  Jif am bm -> runToIO $ execState (run_ji (==0) am bm) ic'
+                  Lt am bm cm -> runToIO $ execState (run_op2 lt am bm cm) ic'
+                  Eq am bm cm -> runToIO $ execState (run_op2 eq am bm cm) ic'
+                  RB m -> runToIO $ execState (run_rb m) ic'
+                  Halt -> ICHalt ic
   where lt x y = c_bool $ x < y
         eq x y = c_bool $ x == y
         c_bool True = 1
