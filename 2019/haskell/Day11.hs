@@ -4,6 +4,7 @@ module Main where
 
 import Control.Lens
 import qualified Data.Map as M
+import qualified Data.Set as S
 
 import Intcode
 
@@ -12,7 +13,7 @@ newtype V2 = V2 {unV2 :: (Int,Int)}
 makePrisms ''V2
 
 data Dir = Up | Rgt | Down | Lft deriving Enum
-data Colour = Black | White deriving Enum
+data Colour = Black | White deriving (Enum, Eq)
 
 right :: Dir -> Dir
 right = toEnum . flip mod 4 . (+1) . fromEnum
@@ -25,8 +26,8 @@ makeLenses ''RobotShip
 
 forward :: RobotShip -> RobotShip
 forward ship = ship & pos %~ f (ship ^. dir)
-  where f Up p = p & _V2 . _2 %~ (+1)
-        f Down p = p & _V2 . _2 %~ (\x -> x-1)
+  where f Up p = p & _V2 . _2 %~ (\x -> x-1)
+        f Down p = p & _V2 . _2 %~ (+1)
         f Lft p = p & _V2 . _1 %~ (\x -> x-1)
         f Rgt p = p & _V2 . _1 %~ (+1)
 
@@ -42,6 +43,16 @@ runRobot = go True
 
 main :: IO ()
 main = do mach <- readIntcode "../data/day11"
-          let ship = runRobot mach $ RobotShip (V2 (0,0)) Up M.empty
+          let shipa = runRobot mach $ RobotShip (V2 (0,0)) Up M.empty
           putStr "part a: "
-          print $ ship ^. paint . to M.size
+          print $ shipa ^. paint . to M.size
+
+          let shipb = runRobot mach $ RobotShip (V2 (0,0)) Up (M.singleton (V2 (0,0)) White)
+          let whites = findIndicesOf (paint . ifolded) (==White) shipb
+          let xmin = minimum1Of (traverse._V2._1) whites
+          let xmax = maximum1Of (traverse._V2._1) whites
+          let ymin = minimum1Of (traverse._V2._2) whites
+          let ymax = maximum1Of (traverse._V2._2) whites
+          let whites' = S.fromList whites
+          putStrLn "part b:"
+          mapM_ putStrLn [[if S.member (V2 (x,y)) whites' then '#' else ' '  | x<-[xmin..xmax]]| y<-[ymin..ymax]]
