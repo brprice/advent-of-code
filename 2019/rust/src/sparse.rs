@@ -15,6 +15,13 @@ pub struct Sparse<I: Eq + Hash, T> {
     data: HashMap<I, T>,
 }
 
+// This will iterate over the non-default entries
+impl<I: Eq + Hash, T: Eq + Clone> Sparse<I, T> {
+    pub fn iter<'a>(&'a self) -> impl 'a + Iterator<Item = (&I, &T)> {
+        self.data.iter().filter(move |(_, v)| **v != self.default)
+    }
+}
+
 impl<I: Eq + Hash, T> Sparse<I, T> {
     pub fn new(default: T, data: HashMap<I, T>) -> Self {
         Sparse { default, data }

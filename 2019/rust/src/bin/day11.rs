@@ -5,7 +5,7 @@ use num::{one, zero, One, Zero};
 use aoc2019::intcode::*;
 use aoc2019::sparse::*;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 enum Colour {
     Black,
     White,
@@ -25,11 +25,11 @@ fn plus((a, b): (isize, isize), (c, d): (isize, isize)) -> (isize, isize) {
 }
 
 fn left((x, y): (isize, isize)) -> (isize, isize) {
-    (-y, x)
+    (y, -x)
 }
 
 fn right((x, y): (isize, isize)) -> (isize, isize) {
-    (y, -x)
+    (-y, x)
 }
 
 fn main() {
@@ -38,11 +38,49 @@ fn main() {
         .cloned()
         .enumerate()
         .collect();
-    let mut mach = IC::new(0, Sparse::new(zero(), mem));
-    let mut pos = (0, 0);
-    let mut dir = (0, 1);
-    let mut is_painting = true;
+    let mach = IC::new(0, Sparse::new(zero(), mem));
+    let origin = (0, 0);
+    let up = (0, -1);
     let mut ship: Sparse<(isize, isize), Colour> = Sparse::new(Colour::Black, HashMap::new());
+    let painted = paint(mach.clone(), origin, up, &mut ship);
+
+    println!("part a: total distinct panels painted: {}", painted.len());
+
+    let mut ship: Sparse<(isize, isize), Colour> = Sparse::new(Colour::Black, HashMap::new());
+    ship[(0, 0)] = Colour::White;
+    paint(mach, origin, up, &mut ship);
+
+    println!("part b: painting is");
+    let (minx, miny, maxx, maxy) =
+        ship.iter()
+            .fold((0, 0, 0, 0), |(mix, miy, max, may), ((x, y), _)| {
+                (
+                    std::cmp::min(mix, *x),
+                    std::cmp::min(miy, *y),
+                    std::cmp::max(max, *x),
+                    std::cmp::max(may, *y),
+                )
+            });
+
+    for y in miny..=maxy {
+        for x in minx..=maxx {
+            if ship[(x, y)] == Colour::Black {
+                print!(" ");
+            } else {
+                print!("#")
+            }
+        }
+        print!("\n");
+    }
+}
+
+fn paint(
+    mut mach: IC<BigIntWrapper, Sparse<usize, BigIntWrapper>>,
+    mut pos: (isize, isize),
+    mut dir: (isize, isize),
+    ship: &mut Sparse<(isize, isize), Colour>,
+) -> HashSet<(isize, isize)> {
+    let mut is_painting = true;
 
     // We don't want to look inside the sparse matrix to see how many elts are stored in that
     // hashset. This would break the abstraction barrier, and we wish to remain agnostic to the
@@ -81,5 +119,5 @@ fn main() {
             IO::Halt => break,
         }
     }
-    println!("part a: total distinct panels painted: {}", painted.len());
+    painted
 }
