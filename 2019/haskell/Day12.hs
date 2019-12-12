@@ -1,8 +1,10 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Main where
 
 import Control.Lens
+import Data.List (genericLength)
 import Data.Void
 import Text.Megaparsec
 import Text.Megaparsec.Char
@@ -35,10 +37,14 @@ main = do let dat = "../data/day12"
           let parsed = parse parser dat input
           case parsed of
             Left err -> print err
-            Right planets -> parta planets
+            Right planets -> do
+              putStr "part a: "
+              print $ parta planets
+              putStr "part b: "
+              print $ partb planets
 
-parta :: [Planet] -> IO ()
-parta planets = print $ totalEnergy $ iterate step planets !! 1000
+parta :: [Planet] -> Integer
+parta planets = totalEnergy $ iterate step planets !! 1000
 
 step :: [Planet] -> [Planet]
 step ps = ps & each %~ step1
@@ -55,3 +61,19 @@ totalEnergy :: [Planet] -> Integer
 totalEnergy ps = ps & sumOf (each.to tot)
   where tot p = (p ^. pos . to l1) * (p ^. vel . to l1)
         l1 = sumOf (x.to abs<>y.to abs<>z.to abs)
+
+
+{-
+Part b needs a bit of thought. There are two insights required here:
+Firstly: the process is reversable, so the first repeated state is the start state;
+Secondly: the three dimensions are independent.
+Thus we iterate until we have seed a repitition in each three dimensions individually,
+and then take the lcm of those times.
+-}
+partb :: [Planet] -> Integer
+partb planets = let future = tail $ iterate step planets
+                    getDim :: Lens' V3 a -> [Planet] -> ([a],[a])
+                    getDim d ps = (ps^..each.pos.d, ps^..each.vel.d)
+                    rep :: Eq a => Lens' V3 a -> Integer
+                    rep d = succ $ genericLength $ takeWhile (\fps -> not $ getDim d planets == getDim d fps) $ future
+                in foldr lcm 1 $ [rep x, rep y, rep z]
