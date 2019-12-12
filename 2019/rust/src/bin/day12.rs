@@ -3,6 +3,9 @@ use std::fmt::Display;
 use std::fs;
 use std::str::FromStr;
 
+use num::integer::lcm;
+
+#[derive(Clone, Eq, PartialEq, Hash)]
 struct V3 {
     x: i64,
     y: i64,
@@ -109,9 +112,47 @@ fn total_energy(planets: &Vec<(V3, V3)>) -> i64 {
 fn main() {
     let input = fs::read_to_string("../data/day12").unwrap();
     let input = input.lines().map(|s| s.parse().unwrap());
-    let mut planets = input.map(|p: V3| (p, V3 { x: 0, y: 0, z: 0 })).collect();
+    let mut planets: Vec<_> = input.map(|p: V3| (p, V3 { x: 0, y: 0, z: 0 })).collect();
+    let start = planets.clone(); // for part b
     for _ in 0..1000 {
         step(&mut planets);
     }
     println!("part a: total energy at end: {}", total_energy(&planets));
+
+    // Part b needs a bit of thought. There are two insights required here:
+    // Firstly: the process is reversable, so the first repeated state is the start state;
+    // Secondly: the three dimensions are independent.
+    // Thus we iterate until we have seed a repitition in each three dimensions individually,
+    // and then take the lcm of those times.
+    let mut planets = start.clone();
+    let mut xrep: Option<u64> = None;
+    let mut yrep: Option<u64> = None;
+    let mut zrep: Option<u64> = None;
+    let l = planets.len();
+    for i in 1.. {
+        step(&mut planets);
+        if xrep.is_none()
+            && (0..l).all(|i| planets[i].0.x == start[i].0.x && planets[i].1.x == start[i].1.x)
+        {
+            println!("part b: found a repeated x state after {} iterations", i);
+            xrep = Some(i);
+        }
+        if yrep.is_none()
+            && (0..l).all(|i| planets[i].0.y == start[i].0.y && planets[i].1.y == start[i].1.y)
+        {
+            println!("part b: found a repeated y state after {} iterations", i);
+            yrep = Some(i);
+        }
+        if zrep.is_none()
+            && (0..l).all(|i| planets[i].0.z == start[i].0.z && planets[i].1.z == start[i].1.z)
+        {
+            println!("part b: found a repeated z state after {} iterations", i);
+            zrep = Some(i);
+        }
+        if xrep.is_some() && yrep.is_some() && zrep.is_some() {
+            let res = lcm(lcm(xrep.unwrap(), yrep.unwrap()), zrep.unwrap());
+            println!("part b: thus first rep is at iteration {}", res);
+            break;
+        }
+    }
 }
