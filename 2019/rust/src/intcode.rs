@@ -9,6 +9,8 @@ use std::ops::IndexMut;
 use std::path::Path;
 use std::str::FromStr;
 
+use crate::sparse::Sparse;
+
 pub trait Vector<T>
 where
     Self: IndexMut<usize, Output = T>,
@@ -39,6 +41,16 @@ where
         .map(|x| x.parse().expect("couldn't parse"))
         .collect()
 }
+
+pub fn read_intcode_sparse<P: AsRef<Path>, T: FromStr>(path: P) -> Sparse<usize, T>
+where
+    T::Err: Debug,
+{
+    let mem = read_intcode(path).into_iter().enumerate().collect();
+    let zero = "0".parse().expect("couldn't parse '0'");
+    Sparse::new(zero, mem)
+}
+
 enum Output<T> {
     Cont,
     Out(T),

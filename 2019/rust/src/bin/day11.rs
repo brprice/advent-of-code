@@ -33,12 +33,8 @@ fn right((x, y): (isize, isize)) -> (isize, isize) {
 }
 
 fn main() {
-    let mem: HashMap<usize, BigIntWrapper> = read_intcode("../data/day11")
-        .iter()
-        .cloned()
-        .enumerate()
-        .collect();
-    let mach = IC::new(0, Sparse::new(zero(), mem));
+    let mem: Sparse<usize, BigIntWrapper> = read_intcode_sparse("../data/day11");
+    let mach = IC::new(0, mem);
     let origin = (0, 0);
     let up = (0, -1);
     let mut ship: Sparse<(isize, isize), Colour> = Sparse::new(Colour::Black, HashMap::new());
