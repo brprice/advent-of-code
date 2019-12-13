@@ -2,15 +2,14 @@ extern crate itertools;
 
 use itertools::Itertools;
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::iter::empty;
 
 use aoc2019::intcode::*;
 use aoc2019::sparse::*;
 
 struct State {
-    ball: (i64, i64),
-    blocks: HashSet<(i64, i64)>,
+    ballx: i64,
     paddlex: i64,
     score: i64,
 }
@@ -39,8 +38,7 @@ fn main() {
     memb[0] = 2;
     let mut mach = IC::new(0, memb);
     let mut state = State {
-        ball: (0, 0),
-        blocks: HashSet::new(),
+        ballx: 0,
         paddlex: 0,
         score: 0,
     }; // garbage to start with
@@ -52,16 +50,14 @@ fn main() {
                     state.score = id;
                 } else {
                     match id {
-                        0 /* empty */ => {state.blocks.remove(&(x,y));},
-                        2 /* block */ => {state.blocks.insert((x,y));},
                         3 /* paddle */ => state.paddlex=x,
-                        4 /* ball */ => state.ball=(x,y),
+                        4 /* ball */ => state.ballx=x,
                         _ => {},
                     }
                 }
             }
             I3O::In(f) => {
-                let input = match state.paddlex.cmp(&state.ball.0) {
+                let input = match state.paddlex.cmp(&state.ballx) {
                     Ordering::Less => 1,
                     Ordering::Equal => 0,
                     Ordering::Greater => -1,
