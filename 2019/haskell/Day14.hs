@@ -28,9 +28,34 @@ oreToBuild recipes n c = go [(n,c)] M.empty
                                                  inputs = rin & each . _1 %~ (*times)
                                              in go (inputs ++ want) $ leftover & at wc ?~ (rn*times-toMake)
 
+-- Assuming the predicate is monotonic, find the first input making it true
+expSearch :: (Integer -> Bool) -> Integer
+expSearch p | p 0 = 0
+            | p 1 = 1
+            | otherwise = go 1
+  where go falsy = let next = 2*falsy
+                   in if p next
+                      then binSearch p falsy next
+                      else go next
+
+-- Assuming the predicate is monotonic, find the first input making it true within a range
+binSearch :: (Integer -> Bool) -> Integer -> Integer -> Integer
+binSearch p lo hi | hi-lo == 1 = hi
+                  | otherwise = let mid = (hi+lo)`div`2
+                                in if p mid
+                                   then binSearch p lo mid
+                                   else binSearch p mid hi
+
 main :: IO ()
 main = do dat <- readFile "../data/day14"
           let Right recipes' = runParser parser "" dat
           let recipes = M.fromList $ map (\(inp,(outn,outc)) -> (outc,(outn,inp))) recipes'
           putStr "part a: ore to make 1 fuel: "
           print $ oreToBuild recipes 1 "FUEL"
+
+          -- part b: how much fuel can we make with 1 trillion ore
+          -- a simple exponential search is good enough here,
+          -- no need for cleverness
+          let maxOre = 10^12
+          let minBad = expSearch (\n -> oreToBuild recipes n "FUEL" > maxOre)
+          putStrLn $ "part b: with 1 trillion ore, we can make " ++ show (minBad - 1) ++ " fuel"
