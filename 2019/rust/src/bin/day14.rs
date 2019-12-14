@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 use std::fs;
 
-fn parse_num_chem(nc: &str) -> (u32, &str) {
+fn parse_num_chem(nc: &str) -> (u64, &str) {
     let mut tmp = nc.trim().split(" ");
     let n = tmp.next().unwrap().parse().unwrap();
     let c = tmp.next().unwrap();
     (n, c)
 }
 
-fn parse_recipe(recipe: &str) -> (Vec<(u32, &str)>, (u32, &str)) {
+fn parse_recipe(recipe: &str) -> (Vec<(u64, &str)>, (u64, &str)) {
     let mut tmp = recipe.split("=>");
     let inputs = tmp.next().unwrap().trim();
     let output = tmp.next().unwrap().trim();
@@ -17,17 +17,9 @@ fn parse_recipe(recipe: &str) -> (Vec<(u32, &str)>, (u32, &str)) {
     (inputs, output)
 }
 
-fn main() {
-    let dat = fs::read_to_string("../data/day14").unwrap();
-    let mut recipes = HashMap::new(); // map from output to inputs
-    for l in dat.lines() {
-        let (inputs, (o_n, output)) = parse_recipe(l);
-        recipes.insert(output, (o_n, inputs));
-    }
-
-    // part a: want to make 1 fuel
+fn fuel_to_ore(recipes: &HashMap<&str, (u64, Vec<(u64, &str)>)>, fuel: u64) -> u64 {
     let mut ore_needed = 0;
-    let mut want = vec![(1, "FUEL")];
+    let mut want = vec![(fuel, "FUEL")];
     let mut leftovers = HashMap::new();
     while let Some((n1, c)) = want.pop() {
         if c == "ORE" {
@@ -52,6 +44,42 @@ fn main() {
             }
         }
     }
+    ore_needed
+}
 
+// find the first input that makes the predicate true,
+// assuming that it is monotone.
+fn binary_search_monotone_change(lo: u64, hi: u64, pred: impl Fn(u64) -> bool) -> u64 {
+    if lo + 1 == hi {
+        return hi;
+    }
+    let mid = (hi + lo) / 2;
+    if pred(mid) {
+        return binary_search_monotone_change(lo, mid, pred);
+    } else {
+        return binary_search_monotone_change(mid, hi, pred);
+    }
+}
+
+fn main() {
+    let dat = fs::read_to_string("../data/day14").unwrap();
+    let mut recipes = HashMap::new(); // map from output to inputs
+    for l in dat.lines() {
+        let (inputs, (o_n, output)) = parse_recipe(l);
+        recipes.insert(output, (o_n, inputs));
+    }
+
+    // part a: want to make 1 fuel
+    let ore_needed = fuel_to_ore(&recipes, 1);
     println!("part a: total ore needed: {}", ore_needed);
+
+    // part b: let's not try anything clever, as simplemindedness is fast enough
+    // do a brute-force exponential search
+    let ore = 1_000_000_000_000;
+    let mut n = 1;
+    while fuel_to_ore(&recipes, n) <= ore {
+        n *= 2;
+    }
+    let min_bad = binary_search_monotone_change(n / 2, n, |k| fuel_to_ore(&recipes, k) > ore);
+    println!("part b: maximum fuel produceable {}", min_bad - 1);
 }
