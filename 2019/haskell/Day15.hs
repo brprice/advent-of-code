@@ -1,8 +1,9 @@
+{-# LANGUAGE TupleSections #-}
 module Main where
 
 import Control.Lens
+import Data.Maybe (listToMaybe)
 import qualified Data.Map as M
-import qualified Data.Sequence as Q
 import qualified Data.Set as S
 
 import Intcode
@@ -62,21 +63,30 @@ mkRobot ic = case runToIO ic of
         toInput W = 3
         toInput E = 4
 
+-- all nodes n steps away for n=0,1,2,...
+graphLevels :: Graph a -> Pos -> [[Pos]]
+graphLevels g = go S.empty . S.singleton
+  where go seen next = let level = (S.difference next seen)
+                       in if S.null level
+                          then []
+                          else S.toList level
+                             : go (S.union next seen) (S.foldr (\p s -> s `S.union` (S.fromList $ snd $ g M.! p)) S.empty next)
+
 -- finds location and path length from start
-bfs :: ((Pos,a) -> Bool) -> Pos -> Graph a -> Maybe (Pos,Integer)
-bfs p start g = go S.empty $ Q.singleton (start,0)
-  where go _ Q.Empty = Nothing
-        go seen ((l,d) Q.:<| rest)
-          | S.member l seen = go seen rest
-          | otherwise = let (a,ch) = g M.! l
-                        in if p (l,a)
-                             then Just (l,d)
-                             else go (S.insert l seen) $ rest Q.>< Q.fromList (map (\c -> (c,d+1)) ch)
+bfs :: (Pos -> a -> Bool) -> Pos -> Graph a -> Maybe (Pos,Integer)
+bfs p start g = listToMaybe
+              $ filter ((\x -> p x $ fst $ g M.! x) . fst)
+              $ concat $ zipWith (\d ps -> map (,d) ps) [0..]
+              $ graphLevels g start
 
 main :: IO ()
 main = do roboBrains <- readIntcode "../data/day15"
           let robot = mkRobot roboBrains
           let area = unfoldGraph (\x -> [N,S,E,W] ^.. each . to (takeStep x) . _Just) ((0,0),robot,False)
           -- part a: we map the whole space, and then do a breadth-first search for the target
-          let Just (loc,dist) = bfs (\(_,system) -> system) (0,0) area
+          let Just (loc,dist) = bfs (\_ system -> system) (0,0) area
           putStrLn $ unwords ["part a: O2 system is at",show loc,"min steps is",show dist]
+
+          -- part b
+          let mins = pred $ length $ graphLevels area loc
+          putStrLn $ unwords ["part b: O2 will take",show mins,"minutes to fill"]
