@@ -111,7 +111,6 @@ executable day14
                        megaparsec ^>= 7.0
   default-language:    Haskell2010
 
-
 executable day15
   main-is:             Day15.hs
   other-modules:       Intcode
@@ -119,4 +118,9 @@ executable day15
                        containers^>=0.6,
                        lens ^>= 4.18,
                        mtl ^>=2.2
+  default-language:    Haskell2010
+
+executable day16
+  main-is:             Day16.hs
+  build-depends:       base ^>=4.12
   default-language:    Haskell2010
