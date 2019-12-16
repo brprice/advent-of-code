@@ -48,25 +48,49 @@ fn binom_p(mut n: usize, mut k: usize, p: usize) -> usize {
     res
 }
 
+// return g,n,m s.t. n*a+m*b = g = gcd(a,b)
+fn ext_gcd(a: i64, b: i64) -> (i64, i64, i64) {
+    let mut r0 = a;
+    let mut r1 = b;
+    let mut s0 = 1;
+    let mut s1 = 0;
+    let mut t0 = 0;
+    let mut t1 = 1;
+    while r1 != 0 {
+        let q = r0 / r1;
+        let r = r0 % r1;
+        let s = s0 - q * s1;
+        let t = t0 - q * t1;
+        r0 = r1;
+        s0 = s1;
+        t0 = t1;
+        r1 = r;
+        s1 = s;
+        t1 = t;
+    }
+    (r0, s0, t0)
+}
+
+// Chinese Remainder Theorem, for two coprime moduli
+// Solve x = a mod m and x = b mod n, for 0<=x<=m*n
+fn crt(a: i64, m: i64, b: i64, n: i64) -> i64 {
+    let (gcd, u, v) = ext_gcd(m, n);
+    if gcd != 1 {
+        panic!("crt: the arguments m={}, n={} were not coprime", m, n);
+    }
+    let res = (a * v * n + b * u * m) % (m * n);
+    if res < 0 {
+        res + m * n
+    } else {
+        res
+    }
+}
+
 // n choose k, modulo 10
 fn binom_10(n: usize, k: usize) -> usize {
     let b2 = binom_p(n, k, 2);
     let b5 = binom_p(n, k, 5);
-    // In the interest of getting things done, we won't implement the Chinese Remainder Theorem,
-    // there are few enough cases to tabulate by hand.
-    match (b2, b5) {
-        (0, 0) => 0,
-        (0, 1) => 6,
-        (0, 2) => 2,
-        (0, 3) => 8,
-        (0, 4) => 4,
-        (1, 0) => 5,
-        (1, 1) => 1,
-        (1, 2) => 7,
-        (1, 3) => 3,
-        (1, 4) => 9,
-        _ => panic!("impossible, b2 is reduced mod 2, and b5 reduced mod 5"),
-    }
+    crt(b2 as i64, 2, b5 as i64, 5) as usize
 }
 
 fn main() {
