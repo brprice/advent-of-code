@@ -23,19 +23,22 @@ readIntcode :: FilePath -> IO IC
 readIntcode f = do cts <- readFile f
                    pure $ IC 0 0 $ M.fromList $ zip [0..] $ map read $ words $ map (\c -> if c==',' then ' ' else c) cts
 
+-- lookup with default 0
+(!) :: M.Map Integer Integer -> Integer -> Integer
+(!) = flip (M.findWithDefault 0)
 
 getMem :: State IC Integer
 getMem = do IC{ip,relBase,mem} <- get
             put (IC{ip=ip+1,relBase,mem})
-            pure $ mem M.! ip
+            pure $ mem ! ip
 
 getMemMode :: Mode -> State IC Integer
 getMemMode Imm = getMem
 getMemMode Pos = do p <- getMem
-                    gets ((M.! p) . mem)
+                    gets ((! p) . mem)
 getMemMode Rel = do p <- getMem
                     IC {relBase,mem} <- get
-                    pure $ mem M.! (p+relBase)
+                    pure $ mem ! (p+relBase)
 
 putMemMode :: Integer -> Mode -> Integer -> State IC ()
 putMemMode _ Imm _ = error "Cannot write with Imm mode"
