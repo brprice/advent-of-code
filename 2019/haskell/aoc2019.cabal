@@ -124,3 +124,11 @@ executable day16
   main-is:             Day16.hs
   build-depends:       base ^>=4.12
   default-language:    Haskell2010
+
+executable day17
+  main-is:             Day17.hs
+  other-modules:       Intcode
+  build-depends:       base ^>=4.12,
+                       containers^>=0.6,
+                       mtl ^>=2.2
+  default-language:    Haskell2010
