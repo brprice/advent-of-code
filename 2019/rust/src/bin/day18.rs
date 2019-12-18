@@ -4,6 +4,8 @@ use std::fs::read_to_string;
 type V2 = (usize, usize);
 
 // The entrance is treated as a key '@'
+// The 4 part b entrances will be treated as a keys '1','2','3','4',
+// but this is done in main, not read_maze
 enum MazeElem {
     Space,
     Key(char),
@@ -175,46 +177,60 @@ fn shortest_path_hitting(
     ent: char,
     to_hit: BTreeSet<char>,
 ) -> usize {
+    shortest_multi_path_hitting(dist, keys, vec![(ent, to_hit)])
+}
+
+fn shortest_multi_path_hitting(
+    dist: &Vec<usize>,
+    keys: &HashMap<char, (usize, V2, BTreeSet<char>)>,
+    vaults: Vec<(char, BTreeSet<char>)>,
+) -> usize {
     fn go(
         dist: &Vec<usize>,
         keys: &HashMap<char, (usize, V2, BTreeSet<char>)>,
-        memo: &mut HashMap<(char, BTreeSet<char>), usize>,
-        start: char,
-        to_hit: BTreeSet<char>,
+        memo: &mut HashMap<Vec<(char, BTreeSet<char>)>, usize>,
+        vaults: Vec<(char, BTreeSet<char>)>,
     ) -> usize {
-        if to_hit.is_empty() {
+        let mut to_hit_all = BTreeSet::new();
+        for th in vaults.iter().map(|(_, to_hit)| to_hit) {
+            let mut thc = th.clone();
+            to_hit_all.append(&mut thc);
+        }
+        if to_hit_all.is_empty() {
             return 0;
         }
-        let memo_key = (start, to_hit.clone());
-        if memo.contains_key(&memo_key) {
-            return memo[&memo_key];
+        if memo.contains_key(&vaults) {
+            return memo[&vaults];
         }
         // grab 'next' which are not blocked by any of the nodes we wish to visit
-        let nexts = to_hit.iter().filter(|n| keys[n].2.is_disjoint(&to_hit));
+        let nexts = vaults
+            .iter()
+            .map(|(_, to_hit)| to_hit.iter().filter(|n| keys[n].2.is_disjoint(&to_hit_all)));
+
         let mut best = None;
         let num_keys = keys.len();
-        let id_start = keys[&start].0;
-        for n in nexts {
-            let mut to_hit_new = to_hit.clone();
-            to_hit_new.remove(&n);
-            let id_n = keys[n].0;
-            let d = dist[id_start * num_keys + id_n] + go(dist, keys, memo, *n, to_hit_new);
-            if best.map_or(true, |b| d < b) {
-                best = Some(d);
+        for (v, nv) in nexts.enumerate() {
+            let id_start_v = keys[&vaults[v].0].0;
+            for n in nv {
+                let mut new_vaults = vaults.clone();
+                new_vaults[v].0 = *n;
+                new_vaults[v].1.remove(n);
+                let id_n = keys[n].0;
+                let d = dist[id_start_v * num_keys + id_n] + go(dist, keys, memo, new_vaults);
+                if best.map_or(true, |b| d < b) {
+                    best = Some(d);
+                }
             }
         }
         let best = match best {
-            None => panic!(
-                "could not find any path from {}, hitting all of {:?}",
-                start, to_hit
-            ),
+            None => panic!("could not find any path in vaults {:?}", vaults),
             Some(b) => b,
         };
-        memo.insert(memo_key, best);
+        memo.insert(vaults, best);
         best
     }
     let mut memo = HashMap::new();
-    go(dist, keys, &mut memo, ent, to_hit)
+    go(dist, keys, &mut memo, vaults)
 }
 
 fn main() {
@@ -227,6 +243,13 @@ fn main() {
         maze.remove(&n);
     }
     let (x, y) = ent;
+
+    // preperation for part b: the 4 vault entrances
+    maze.insert((x - 1, y - 1), MazeElem::Key('1'));
+    maze.insert((x + 1, y - 1), MazeElem::Key('2'));
+    maze.insert((x + 1, y + 1), MazeElem::Key('3'));
+    maze.insert((x - 1, y + 1), MazeElem::Key('4'));
+
     let (forest, keys) = extract_forest(
         maze,
         vec![
@@ -264,4 +287,35 @@ fn main() {
         keys.keys().copied().filter(not_root).collect(),
     );
     println!("part a: {}", parta);
+
+    // part b: partition into the 4 vaults
+    let v1 = keys[&'1'].0;
+    let v2 = keys[&'2'].0;
+    let v3 = keys[&'3'].0;
+    let v4 = keys[&'4'].0;
+    let in_vault = |k, v| {
+        let dkv = dist[k * num_keys + v];
+        let dkv1 = dist[k * num_keys + v1];
+        let dkv2 = dist[k * num_keys + v2];
+        let dkv3 = dist[k * num_keys + v3];
+        let dkv4 = dist[k * num_keys + v4];
+        dkv <= dkv1 && dkv <= dkv2 && dkv <= dkv3 && dkv <= dkv4
+    };
+    let vaults = ['1', '2', '3', '4'].into_iter().map(|v| {
+        let vid = keys[v].0;
+        (
+            *v,
+            keys.iter()
+                .filter_map(|(k, (id, _, _))| {
+                    if not_root(k) && in_vault(id, vid) {
+                        Some(*k)
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+        )
+    });
+    let partb = shortest_multi_path_hitting(&dist, &keys, vaults.collect());
+    println!("part b: {}", partb);
 }
