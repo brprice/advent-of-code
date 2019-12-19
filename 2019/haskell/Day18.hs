@@ -67,11 +67,25 @@ distsBlocks (forest,keys,doors) = let kpds = M.map pathDoors keys
 -- Find the minimal length of a path starting at 'start', visiting all the
 -- given nodes (the keys of the map), in some order s.t. all of the dependencies
 -- (values of the map) are visited before the node itself.
--- Implemeneted via graph searching.
 minPathVisiting :: Ord a => M.Map (a,a) Int -> a -> M.Map a (S.Set a) -> Int
-minPathVisiting dists start deps = fst $ head $ filter (S.null.snd.snd) $ dij next (start,M.keysSet deps)
-  where next (s,v) = let nxt = filter (\n -> S.null $ S.intersection v (deps M.! n)) $ S.elems v
-                     in map (\n -> (dists M.! (s,n),(n,S.delete n v))) nxt
+minPathVisiting dists start deps = minMultiPathVisiting dists deps [(start,M.keysSet deps)]
+
+-- Find the minimal total length of multiple paths starting at particular elements
+-- and visiting a set of nodes each, whilst respecting the order given by the dependency
+-- map. The ordering is respected across different paths.
+-- Implemeneted via graph searching.
+minMultiPathVisiting :: Ord a => M.Map (a,a) Int -> M.Map a (S.Set a) -> [(a, S.Set a)] -> Int
+minMultiPathVisiting dists deps = fst . head . filter (\(_,s) -> all (S.null . snd) s) . dij (\s -> modify1 (step1 $ S.unions $ map snd s) s)
+  where -- modify1 non-deterministically applies f to one of the input elts,
+        -- returning the by-product, and updating the element
+        modify1 :: (a -> [(b,a)]) -> [a] -> [(b,[a])]
+        modify1 _ [] = error "modify1 on empty list"
+        modify1 f [x] = map (\(b,y) -> (b,[y])) $ f x
+        modify1 f (x:xs) = let bxs' = f x
+                           in map (\(b,x') -> (b,x':xs)) bxs' ++ map (\(c,ys) -> (c,x:ys)) (modify1 f xs)
+        step1 allToVisit (start,toVisit) = let tovi = S.toList toVisit
+                                               next = filter (\n -> S.null $ S.intersection allToVisit (deps M.! n)) tovi
+                                           in map (\n -> (dists M.! (start,n), (n,S.delete n toVisit))) next
 
 -- Dijkstra's algorithm for point-to-any shortest paths on a weighted graph
 -- We lazily produce a list of distances from the start, in order of increasing distance.
@@ -108,3 +122,10 @@ main = do dat <- readFile "../data/day18"
 
           putStr "part a: "
           print $ minPathVisiting dists '@' blocks'
+
+          -- split keys into the 4 trees
+          let inTree r k = dists M.! (r,k) == minimum (map (\r' -> dists M.! (r',k)) "1234")
+          let vaults = map (\r -> (r,S.filter (\k -> (k `notElem` '@':quadrantRoots) && inTree r k) $ M.keysSet keys'))
+                           quadrantRoots
+          putStr "part b: "
+          print $ minMultiPathVisiting dists blocks' vaults
