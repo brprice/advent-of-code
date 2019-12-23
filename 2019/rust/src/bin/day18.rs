@@ -1,7 +1,7 @@
 use std::collections::{BTreeSet, HashMap};
 use std::fs::read_to_string;
 
-type V2 = (usize, usize);
+use aoc2019::parse_array::{char_array_iter, neighbours, V2};
 
 // The entrance is treated as a key '@'
 // The 4 part b entrances will be treated as a keys '1','2','3','4',
@@ -15,35 +15,26 @@ enum MazeElem {
 // extract the spaces, entrance, keys and doors of the maze
 fn read_maze(maze: String) -> (V2, HashMap<V2, MazeElem>) {
     let mut map = HashMap::new();
-    let maze = maze.lines();
     let mut ent = None;
-    for (y, l) in maze.enumerate() {
-        for (x, c) in l.chars().enumerate() {
-            print!("{}", c);
-            match c {
-                '.' => {
-                    map.insert((x, y), MazeElem::Space);
-                }
-                '@' => {
-                    ent = Some((x, y));
-                    map.insert((x, y), MazeElem::Key('@'));
-                }
-                d => {
-                    if d.is_ascii_lowercase() {
-                        map.insert((x, y), MazeElem::Key(d));
-                    } else if d.is_ascii_uppercase() {
-                        map.insert((x, y), MazeElem::Door(d.to_ascii_lowercase()));
-                    }
+    for (V2 { x, y }, c) in char_array_iter(&maze) {
+        match c {
+            '.' => {
+                map.insert(V2 { x, y }, MazeElem::Space);
+            }
+            '@' => {
+                ent = Some(V2 { x, y });
+                map.insert(V2 { x, y }, MazeElem::Key('@'));
+            }
+            d => {
+                if d.is_ascii_lowercase() {
+                    map.insert(V2 { x, y }, MazeElem::Key(d));
+                } else if d.is_ascii_uppercase() {
+                    map.insert(V2 { x, y }, MazeElem::Door(d.to_ascii_lowercase()));
                 }
             }
         }
-        println!("");
     }
     (ent.unwrap(), map)
-}
-
-fn neighbours((x, y): V2) -> Vec<V2> {
-    vec![(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
 }
 
 /* Given a map of node-locations |-> MazeElem, and a bunch of roots,
@@ -125,10 +116,10 @@ fn extract_forest(
 
 // assume the roots are connected together, with l1-weighted edges
 fn get_dist(forest: &Vec<HashMap<V2, V2>>, x: &V2, y: &V2) -> usize {
-    fn l1(x: V2, y: V2) -> usize {
-        let d0 = if x.0 > y.0 { x.0 - y.0 } else { y.0 - x.0 };
-        let d1 = if x.1 > y.1 { x.1 - y.1 } else { y.1 - x.1 };
-        d0 + d1
+    fn l1(u: V2, v: V2) -> usize {
+        let dx = if u.x > v.x { u.x - v.x } else { v.x - u.x };
+        let dy = if u.y > v.y { u.y - v.y } else { v.y - u.y };
+        (dx + dy) as usize
     }
     fn to_root(forest: &Vec<HashMap<V2, V2>>, mut x: V2) -> Vec<V2> {
         match forest.iter().filter(|t| t.contains_key(&x)).next() {
@@ -242,22 +233,22 @@ fn main() {
     for n in neighbours(ent) {
         maze.remove(&n);
     }
-    let (x, y) = ent;
+    let V2 { x, y } = ent;
 
     // preperation for part b: the 4 vault entrances
-    maze.insert((x - 1, y - 1), MazeElem::Key('1'));
-    maze.insert((x + 1, y - 1), MazeElem::Key('2'));
-    maze.insert((x + 1, y + 1), MazeElem::Key('3'));
-    maze.insert((x - 1, y + 1), MazeElem::Key('4'));
+    maze.insert(V2 { x: x - 1, y: y - 1 }, MazeElem::Key('1'));
+    maze.insert(V2 { x: x + 1, y: y - 1 }, MazeElem::Key('2'));
+    maze.insert(V2 { x: x + 1, y: y + 1 }, MazeElem::Key('3'));
+    maze.insert(V2 { x: x - 1, y: y + 1 }, MazeElem::Key('4'));
 
     let (forest, keys) = extract_forest(
         maze,
         vec![
             ent,
-            (x - 1, y - 1),
-            (x + 1, y - 1),
-            (x + 1, y + 1),
-            (x - 1, y + 1),
+            V2 { x: x - 1, y: y - 1 },
+            V2 { x: x + 1, y: y - 1 },
+            V2 { x: x + 1, y: y + 1 },
+            V2 { x: x - 1, y: y + 1 },
         ],
     );
     // assign sequential ids starting from 0 to keys
