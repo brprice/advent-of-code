@@ -6,7 +6,11 @@ use std::hash::Hash;
 use aoc2019::parse_array::{char_array_iter, neighbours, V2};
 
 // for edge weights all 1
-fn dijkstra<T: Copy + Hash + Ord>(neighbours: HashMap<T, Vec<T>>, start: T) -> HashMap<T, usize> {
+fn dijkstra<'a, T: 'a + Copy + Hash + Ord, S: Iterator<Item = T>>(
+    neighbours: impl Fn(&T) -> S,
+    start: T,
+    end: T,
+) -> usize {
     let mut dists = HashMap::new();
     let mut seen = HashSet::new();
     let mut todo = BinaryHeap::new();
@@ -19,16 +23,26 @@ fn dijkstra<T: Copy + Hash + Ord>(neighbours: HashMap<T, Vec<T>>, start: T) -> H
         }
 
         dists.insert(n, d);
+        if n == end {
+            break;
+        }
         seen.insert(n);
-        for &m in neighbours[&n].iter() {
+        //for &m in neighbours(&n).iter() {
+        for m in neighbours(&n) {
             todo.push((Reverse(d + 1), m));
         }
     }
 
-    dists
+    dists[&end]
 }
 
-fn parse_maze(maze: String) -> (HashMap<V2, Vec<V2>>, V2, V2) {
+enum Neighbour {
+    SameLevel(V2), // a normal step
+    Inner(V2),     // into smaller recursive maze, at this point
+    Outer(V2),     // exit into outer recursive maze, at this point
+}
+
+fn parse_maze(maze: String) -> (HashMap<V2, Vec<Neighbour>>, V2, V2) {
     let mut corridor = HashSet::new();
     let mut portal_chars = HashMap::new(); // map (x,y) -> portal letter
 
@@ -45,11 +59,15 @@ fn parse_maze(maze: String) -> (HashMap<V2, Vec<V2>>, V2, V2) {
         }
     }
 
+    let max_x = corridor.iter().map(|p| p.x).max().unwrap();
+    let max_y = corridor.iter().map(|p| p.y).max().unwrap();
+
     let mut neighs = HashMap::new();
     for &c in corridor.iter() {
         let ns = neighbours(c)
             .into_iter()
             .filter(|n| corridor.contains(n))
+            .map(Neighbour::SameLevel)
             .collect();
         neighs.insert(c, ns);
     }
@@ -88,8 +106,24 @@ fn parse_maze(maze: String) -> (HashMap<V2, Vec<V2>>, V2, V2) {
         assert_eq!(pls.len(), 2);
 
         // add portals to neighbours
-        neighs.entry(pls[0]).or_insert(Vec::new()).push(pls[1]);
-        neighs.entry(pls[1]).or_insert(Vec::new()).push(pls[0]);
+        // say we are on the outside edge of the maze iff we are within 5 tiles of the border
+        // NB: this is saying where the target is, not the source, so the condition is negated
+        // to what you may expect
+        let mk_port = |p: V2| {
+            if p.x < 5 || p.x > max_x - 5 || p.y < 5 || p.y > max_y - 5 {
+                Neighbour::Inner(p)
+            } else {
+                Neighbour::Outer(p)
+            }
+        };
+        neighs
+            .entry(pls[0])
+            .or_insert(Vec::new())
+            .push(mk_port(pls[1]));
+        neighs
+            .entry(pls[1])
+            .or_insert(Vec::new())
+            .push(mk_port(pls[0]));
     }
 
     (neighs, start, end)
@@ -98,6 +132,32 @@ fn parse_maze(maze: String) -> (HashMap<V2, Vec<V2>>, V2, V2) {
 fn main() {
     let maze = fs::read_to_string("../data/day20").unwrap();
     let (neighbours, entrance, exit) = parse_maze(maze);
-    let dists = dijkstra(neighbours, entrance);
-    println!("part a: {}", dists[&exit]);
+    fn to_same_level(n: &Neighbour) -> V2 {
+        match n {
+            Neighbour::SameLevel(p) => *p,
+            Neighbour::Inner(p) => *p,
+            Neighbour::Outer(p) => *p,
+        }
+    }
+    let dist = dijkstra(|n| neighbours[n].iter().map(to_same_level), entrance, exit);
+    println!("part a: {}", dist);
+
+    let entb = (entrance, 0);
+    let exib = (exit, 0);
+    fn to_rec_level(n: &Neighbour, cur: usize) -> Option<(V2, usize)> {
+        match n {
+            Neighbour::SameLevel(p) => Some((*p, cur)),
+            Neighbour::Inner(p) => Some((*p, cur + 1)),
+            Neighbour::Outer(p) => {
+                if cur == 0 {
+                    None
+                } else {
+                    Some((*p, cur - 1))
+                }
+            }
+        }
+    }
+    let neib = |&(n, l): &(V2, usize)| neighbours[&n].iter().flat_map(move |p| to_rec_level(p, l));
+    let distb = dijkstra(neib, entb, exib);
+    println!("part b: {}", distb);
 }
