@@ -2,7 +2,7 @@
 
 module Main where
 
-import Utils(extractJoin)
+import Utils(dijkstra, extractJoin, neighboursGrid, parseCharArray)
 
 import Data.Char (isUpper, toLower)
 import qualified Data.Map as M
@@ -15,31 +15,28 @@ type Key = Char
 type Door = Char
 
 -- We treat the entrance '@' as a key here
-parseMaze :: String -> (S.Set V2, M.Map Key V2, M.Map V2 Door)
-parseMaze s = let halls = filter (notWall.snd) $ concat $ zipWith (\y l -> zipWith (\x c -> ((x,y),c)) [0..] l) [0..] $ lines s
-                  keys' = filter (isKey.snd) halls
-                  doors' = filter (isDoor.snd) halls
-                  keys = M.fromList $ map swap keys'
+parseMaze :: M.Map V2 Char -> (S.Set V2, M.Map Key V2, M.Map V2 Door)
+parseMaze m = let halls = M.filter notWall m
+                  keys' = M.filter isKey halls
+                  doors' = M.filter isDoor halls
+                  keys = M.fromList $ map swap $ M.toList keys'
                   -- we treat each key as a door also, as it is pointless going past a key on the way to pick
                   -- up a different one!
-                  doors = M.fromList $ doors' ++ keys'
-              in (S.fromList $ map fst halls, keys, doors)
+                  doors = M.union doors' keys'
+              in (M.keysSet halls, keys, doors)
   where notWall = (/=) '#'
         isKey c = c/='.' && not (isUpper c)
         isDoor = isUpper
         swap (x,y) = (y,x)
 
-neighbours :: V2 -> [V2]
-neighbours (x,y) = [(x-1,y),(x+1,y),(x,y-1),(x,y+1)]
-
 buildForest :: S.Set V2 -> [V2] -> Forest V2
 buildForest = go
   where go halls roots = go' halls (S.fromList roots) M.empty
-                             [(r,n) | r<-roots, n<-neighbours r, S.member r halls, S.member n halls]
+                             [(r,n) | r<-roots, n<-neighboursGrid r, S.member r halls, S.member n halls]
         go' _ _ forest [] = forest
         go' halls seen forest ((p,c):pcs)
           | S.member c seen = error "parseMase: not a forest!"
-          | otherwise = go' halls (S.insert c seen) (M.insert c p forest) $ map (c,) (filter (\c' -> p/=c' && S.member c' halls) (neighbours c)) ++ pcs
+          | otherwise = go' halls (S.insert c seen) (M.insert c p forest) $ map (c,) (filter (\c' -> p/=c' && S.member c' halls) (neighboursGrid c)) ++ pcs
 
 -- Find minimal distance between each pair of keys, and the keys one must collect before being able to reach each particular key
 -- Assumes roots of forest are connected, with l1 norm
@@ -75,7 +72,8 @@ minPathVisiting dists start deps = minMultiPathVisiting dists deps [(start,M.key
 -- map. The ordering is respected across different paths.
 -- Implemeneted via graph searching.
 minMultiPathVisiting :: Ord a => M.Map (a,a) Int -> M.Map a (S.Set a) -> [(a, S.Set a)] -> Int
-minMultiPathVisiting dists deps = fst . head . filter (\(_,s) -> all (S.null . snd) s) . dij (\s -> modify1 (step1 $ S.unions $ map snd s) s)
+minMultiPathVisiting dists deps = fst . head . filter (\(_,s) -> all (S.null . snd) s)
+                                . dijkstra (\s -> modify1 (step1 $ S.unions $ map snd s) s)
   where -- modify1 non-deterministically applies f to one of the input elts,
         -- returning the by-product, and updating the element
         modify1 :: (a -> [(b,a)]) -> [a] -> [(b,[a])]
@@ -87,32 +85,14 @@ minMultiPathVisiting dists deps = fst . head . filter (\(_,s) -> all (S.null . s
                                                next = filter (\n -> S.null $ S.intersection allToVisit (deps M.! n)) tovi
                                            in map (\n -> (dists M.! (start,n), (n,S.delete n toVisit))) next
 
--- Dijkstra's algorithm for point-to-any shortest paths on a weighted graph
--- We lazily produce a list of distances from the start, in order of increasing distance.
-dij :: Ord a => (a -> [(Int,a)]) -> a -> [(Int,a)]
-dij children start = go (M.singleton start 0) S.empty (M.singleton 0 [start])
--- Use a map as a poor-mans priority queue
-  where go dist seen pq = case M.minViewWithKey pq of
-                            Nothing -> []
-                            Just ((_,[]),pqRest) -> go dist seen pqRest
-                            Just ((d,s:ss),pqRest) ->
-                              let pq' = M.insert d ss pqRest
-                                  new = filter (not . flip S.member seen . snd) $ map (\(dd,ch) -> (d+dd,ch)) $ children s
-                                  newPQ = foldr (\(d',s') -> M.insertWith (++) d' [s']) pq' new
-                                  newDist = foldr (\(d',a) -> M.insertWith min a d') dist new
-                              in if S.member s seen
-                                 then go dist seen pq'
-                                 else (d,s) : go newDist (S.insert s seen) newPQ
-
-
 main :: IO ()
 main = do dat <- readFile "../data/day18"
-          let (halls,keys,doors) = parseMaze dat
+          let (halls,keys,doors) = parseMaze $ parseCharArray dat
               (x,y) = keys M.! '@'
               roots = (x,y) : [(x+i,y+j) | i<-[-1,1],j<-[-1,1]]
               -- break the maze into 4 trees, one per quadrant,
               -- plus one trivial one at the entry (for measuring distance)
-              halls' = halls S.\\ S.fromList (neighbours (x,y))
+              halls' = halls S.\\ S.fromList (neighboursGrid (x,y))
               forest = buildForest halls' roots
               -- add keys so part b can measure distance from them
               quadrantRoots = "1234"
