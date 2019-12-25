@@ -1,4 +1,8 @@
-module Utils (V2, (.+), (.-), dijkstra, extractJoin, neighboursGrid, parseCharArray) where
+module Utils (V2, (.+), (.-), neighboursGrid, parseCharArray
+             ,dijkstra
+             ,extractJoin
+             ,extGCD)
+where
 
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
@@ -43,3 +47,12 @@ dijkstra children start = go (M.singleton start 0) S.empty (S.singleton (0,start
                               in if S.member s seen
                                  then go dist seen pq'
                                  else (d,s) : go newDist (S.insert s seen) newPQ
+
+-- extGCD a b = (d,m,n) where d = gcd a b = m*a+n*b
+extGCD :: Integer -> Integer -> (Integer,Integer,Integer)
+extGCD a b = go a b 1 0 0 1
+  where go r0 0 s0 _ t0 _ = (r0,s0,t0)
+        go r0 r1 s0 s1 t0 t1 = let (q,r) = quotRem r0 r1
+                                   s = s0 - q * s1
+                                   t = t0 - q * t1
+                               in go r1 r s1 s t1 t

@@ -3,6 +3,8 @@ module Main where
 import Control.Monad (unless)
 import Data.List (foldl', tails)
 
+import Utils (extGCD)
+
 -- the units digit, where trunc (-17) = 7
 trunc :: Integer -> Integer
 trunc = (`mod` 10).abs
@@ -28,15 +30,6 @@ binom_p n k p = product $ go (digs n) (digs k)
         go (_:nds) [] = 1 : go nds []
         go [] (_:kds) = 0 : go [] kds
         go (nd:nds) (kd:kds) = binom nd kd : go nds kds
-
--- extGCD a b = (d,m,n) where d = gcd a b = m*a+n*b
-extGCD :: Integer -> Integer -> (Integer,Integer,Integer)
-extGCD a b = go a b 1 0 0 1
-  where go r0 0 s0 _ t0 _ = (r0,s0,t0)
-        go r0 r1 s0 s1 t0 t1 = let (q,r) = quotRem r0 r1
-                                   s = s0 - q * s1
-                                   t = t0 - q * t1
-                               in go r1 r s1 s t1 t
 
 -- Chinese remainder theorem
 -- solve x = a mod m, x = b mod n for 0<=x<m*n
