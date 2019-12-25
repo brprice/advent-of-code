@@ -26,3 +26,19 @@ main = do mach <- readIntcode "../data/day21"
           putStr "part a: "
           print $ last outA
 
+          -- Jump if you can land, it isn't immediate doom, and you must soon
+          -- (i.e. an optimised version of part a, plus a bit more look-ahead)
+          -- D && (E || H) && (!A || !B || !C)
+          let inB = unlines ["OR E J"
+                            ,"OR H J"
+                            ,"AND D J"
+                            ,"NOT T T"
+                            ,"AND A T"
+                            ,"AND B T"
+                            ,"AND C T"
+                            ,"NOT T T"
+                            ,"AND T J"
+                            ,"RUN"]
+          let outB = evalState (run $ map (fromIntegral.ord) inB) mach
+          putStr "part b: "
+          print $ last outB
