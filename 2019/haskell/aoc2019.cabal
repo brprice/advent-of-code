@@ -163,3 +163,8 @@ executable day21
                        containers^>=0.6,
                        mtl ^>=2.2
   default-language:    Haskell2010
+
+executable day22
+  main-is:             Day22.hs
+  build-depends:       base ^>=4.12
+  default-language:    Haskell2010
