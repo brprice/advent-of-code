@@ -1,5 +1,5 @@
 use num::{zero, Num};
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::convert::{TryFrom, TryInto};
 use std::fmt::{Debug, Display};
 use std::ops::Sub;
@@ -14,7 +14,11 @@ struct State<T, C: Vector<T>> {
 }
 
 // returns packets sent to machines not in the input vector
-fn step<T, C: Vector<T>>(state: &mut Vec<State<T, C>>) -> Vec<(T, T, T)>
+// and also whether the network was idle this tick: all queues empty and no outputs happened
+// if not, return None, if so, return the set of machines which requested input
+// (Then the defininion of "idle network" for part b will be that there have been a sequence of
+// idle ticks, during which there was a read by each machine)
+fn step<T, C: Vector<T>>(state: &mut Vec<State<T, C>>) -> (Vec<(T, T, T)>, Option<HashSet<usize>>)
 where
     T: Clone,
     T: TryInto<usize>,
@@ -30,17 +34,32 @@ where
 {
     let minus_one = T::from(0u8) - T::from(1u8);
     let mut ret = Vec::new();
+    let mut idle = Some(HashSet::new());
 
     for s in 0..state.len() {
-        let i = state[s].buf_in.front().unwrap_or(&minus_one);
+        let i = state[s].buf_in.front();
+        let i = match i {
+            None => &minus_one,
+            Some(x) => {
+                idle = None;
+                x
+            }
+        };
         let mut in_iter = vec![i.clone()].into_iter();
         match state[s].mach.run1(&mut in_iter) {
             Some(Output::Cont) => {}
-            Some(Output::Out(o)) => state[s].buf_out.push(o),
+            Some(Output::Out(o)) => {
+                idle = None;
+                state[s].buf_out.push(o);
+            }
             None => {} // halted
         }
         match in_iter.next() {
             None => {
+                idle = idle.map(|mut x| {
+                    x.insert(s);
+                    x
+                });
                 state[s].buf_in.pop_front();
             } // consumed some input
             Some(_) => {}
@@ -63,7 +82,7 @@ where
             }
         }
     }
-    ret
+    (ret, idle)
 }
 
 fn main() {
@@ -84,16 +103,50 @@ fn main() {
         });
     }
 
+    // for part b, initialised with garbage, will be overwritten in part a
+    let mut nat = (0, 0);
+
     // part a: it turns out that the first packet sent to an address not in the network
     // is sent to 255, as the puzzle asks.
     loop {
-        let ps = step(&mut state);
+        let (ps, _) = step(&mut state);
         if !ps.is_empty() {
-            println!("out-of-network packets:");
+            println!("part a: first out-of-network packets:");
             for (d, x, y) in ps {
                 println!("dst: {} X:{} Y:{}", d, x, y);
+                // for part b
+                if d == 255 {
+                    nat = (x, y);
+                }
             }
             break;
+        }
+    }
+
+    // part b:
+    let all_idle = |is: &HashSet<_>| (0..num_nics).all(|i| is.contains(&i));
+    let mut idles = HashSet::new();
+    let mut last_y = None;
+    loop {
+        let (ps, idle) = step(&mut state);
+        for (d, x, y) in ps {
+            if d == 255 {
+                nat = (x, y);
+            }
+        }
+        match idle {
+            None => idles.clear(),
+            Some(is) => idles = &idles | &is,
+        }
+        if all_idle(&idles) {
+            state[0].buf_in.push_back(nat.0);
+            state[0].buf_in.push_back(nat.1);
+            let new_y = Some(nat.1);
+            if last_y == new_y {
+                println!("part b: first Y delivired by NAT twice in a row: {}", nat.1);
+                break;
+            }
+            last_y = new_y;
         }
     }
 }
