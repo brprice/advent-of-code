@@ -51,9 +51,9 @@ where
     Sparse::new(zero, mem)
 }
 
-enum Output<T> {
-    Cont,
-    Out(T),
+pub enum Output<T> {
+    Cont,   // we did some computation
+    Out(T), // we output this value
 }
 enum Mode {
     Pos,
@@ -222,7 +222,7 @@ where
         self.ip += 2;
     }
 
-    fn run1<I>(&mut self, input: &mut I) -> Option<Output<T>>
+    pub fn run1<I>(&mut self, input: &mut I) -> Option<Output<T>>
     where
         I: Iterator<Item = T>,
     {

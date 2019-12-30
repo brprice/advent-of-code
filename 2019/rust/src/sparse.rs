@@ -142,6 +142,13 @@ impl From<u8> for BigIntWrapper {
         }
     }
 }
+impl From<usize> for BigIntWrapper {
+    fn from(f: usize) -> Self {
+        BigIntWrapper {
+            big_int: BigInt::from(f),
+        }
+    }
+}
 impl std::fmt::Display for BigIntWrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         self.big_int.fmt(f)
