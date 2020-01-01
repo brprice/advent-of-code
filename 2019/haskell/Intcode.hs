@@ -106,23 +106,33 @@ run inputStream = StateT $ Identity . flip go inputStream
                         ICHalt ic' -> ([],ic')
 
 -- For day 11, we can't get away with viewing running intcode as a function [Integer] -> [Integer].
--- Massaging the above into a more useful form is annoyingly awkward,
--- but it works well enough to get the day done.
 data ICIO = ICIn (Integer -> IC) | ICOut Integer IC | ICHalt IC
 
 runToIO :: IC -> ICIO
-runToIO ic = let (op,ic') = runState getOp ic
-             in case op of
-                  Add am bm cm -> runToIO $ execState (run_op2 (+) am bm cm) ic'
-                  Mul am bm cm -> runToIO $ execState (run_op2 (*) am bm cm) ic'
-                  In m -> ICIn $ \i -> execState (run_in i m) ic'
-                  Out m -> uncurry ICOut $ runState (run_out m) ic'
-                  Jit am bm -> runToIO $ execState (run_ji (/=0) am bm) ic'
-                  Jif am bm -> runToIO $ execState (run_ji (==0) am bm) ic'
-                  Lt am bm cm -> runToIO $ execState (run_op2 lt am bm cm) ic'
-                  Eq am bm cm -> runToIO $ execState (run_op2 eq am bm cm) ic'
-                  RB m -> runToIO $ execState (run_rb m) ic'
-                  Halt -> ICHalt ic
+runToIO ic = case run1 ic of
+               Cont1 ic' -> runToIO ic'
+               In1 f -> ICIn f
+               Out1 o ic' -> ICOut o ic'
+               Halt1 ic' -> ICHalt ic'
+
+
+-- For day 23, we will run many machines in lock-step, so we need run1
+-- Massaging the above into a more useful form is annoyingly awkward,
+-- but it works well enough to get the day done.
+data ICRun1 = Cont1 IC | In1 (Integer -> IC) | Out1 Integer IC | Halt1 IC
+run1 :: IC -> ICRun1
+run1 ic = let (op,ic') = runState getOp ic
+          in case op of
+               Add am bm cm -> Cont1 $ execState (run_op2 (+) am bm cm) ic'
+               Mul am bm cm -> Cont1 $ execState (run_op2 (*) am bm cm) ic'
+               In m -> In1 $ \i -> execState (run_in i m) ic'
+               Out m -> uncurry Out1 $ runState (run_out m) ic'
+               Jit am bm -> Cont1 $ execState (run_ji (/=0) am bm) ic'
+               Jif am bm -> Cont1 $ execState (run_ji (==0) am bm) ic'
+               Lt am bm cm -> Cont1 $ execState (run_op2 lt am bm cm) ic'
+               Eq am bm cm -> Cont1 $ execState (run_op2 eq am bm cm) ic'
+               RB m -> Cont1 $ execState (run_rb m) ic'
+               Halt -> Halt1 ic
   where lt x y = c_bool $ x < y
         eq x y = c_bool $ x == y
         c_bool True = 1
