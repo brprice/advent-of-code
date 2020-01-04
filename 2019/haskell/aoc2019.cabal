@@ -180,3 +180,10 @@ executable day23
                        containers^>=0.6,
                        mtl ^>=2.2
   default-language:    Haskell2010
+
+executable day24
+  main-is:             Day24.hs
+  other-modules:       Utils
+  build-depends:       base ^>=4.12,
+                       containers^>=0.6
+  default-language:    Haskell2010
