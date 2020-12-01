@@ -10,7 +10,7 @@ end
 
 function day1a(expenses)
   p = getPairSum(2020,expenses)
-  if p == nothing
+  if p === nothing
     error("day1a: did not find a pair summing to 2020")
   end
   (x,y) = p
@@ -20,7 +20,7 @@ end
 function getTripleSum(target,nums)
   for i in nums
     p = getPairSum(target-i,nums)
-    if p != nothing
+    if p !== nothing
       (x,y)=p
       return (i,x,y)
     end
@@ -30,7 +30,7 @@ end
 
 function day1b(expenses)
   t = getTripleSum(2020,expenses)
-  if t == nothing
+  if t === nothing
     error("day1b: did not find a triple summing to 2020")
   end
   (x,y,z) = t
