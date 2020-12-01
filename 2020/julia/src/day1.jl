@@ -5,16 +5,43 @@ function getPairSum(target,nums)
       return (i,target-i)
     end
   end
-  error("getPairSum: did not find a pair with the correct sum")
+  return nothing
 end
 
 function day1a(expenses)
-  (x,y) = getPairSum(2020,expenses)
+  p = getPairSum(2020,expenses)
+  if p == nothing
+    error("day1a: did not find a pair summing to 2020")
+  end
+  (x,y) = p
   x*y
+end
+
+function getTripleSum(target,nums)
+  for i in nums
+    p = getPairSum(target-i,nums)
+    if p != nothing
+      (x,y)=p
+      return (i,x,y)
+    end
+  end
+  return nothing
+end
+
+function day1b(expenses)
+  t = getTripleSum(2020,expenses)
+  if t == nothing
+    error("day1b: did not find a triple summing to 2020")
+  end
+  (x,y,z) = t
+  x * y * z
 end
 
 
 expenses=parse.(Int,readlines("../../data/day1"))
 
 print("Day 1a: ")
-day1a(expenses)
+println(day1a(expenses))
+
+print("Day 1b: ")
+println(day1b(expenses))
