@@ -20,7 +20,25 @@ function day2a(passwords)
   return valid
 end
 
+function isValidB(l,h,c,pw)
+  xor(pw[l] == c, pw[h] == c)
+end
+
+function day2b(passwords)
+  valid=0
+  for p in passwords
+    (l,h,c,pw) = parsePw(p)
+    if isValidB(l,h,c,pw)
+      valid+=1
+    end
+  end
+  return valid
+end
+
 passwords = readlines("../../data/day2")
 
 print("Day 2a: ")
 println(day2a(passwords))
+
+print("Day 2b: ")
+println(day2b(passwords))
