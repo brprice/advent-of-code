@@ -30,7 +30,37 @@ function day4a(data)
   count(isValid,passports(data))
 end
 
+function matchNumRange(r,l,h,s)
+  m = match(r,s)
+  if m === nothing
+    return false
+  end
+  l <= parse(Int,m.captures[1]) <= h
+end
+
+# Now we have some validation criteria for each field
+function isValidB(passport)
+  byr=matchNumRange(r"(?: |^)byr:(\d{4})( |$)",1920,2002,passport)
+  iyr=matchNumRange(r"(?: |^)iyr:(\d{4})( |$)",2010,2020,passport)
+  eyr=matchNumRange(r"(?: |^)eyr:(\d{4})( |$)",2020,2030,passport)
+  hgtCm=matchNumRange(r"(?: |^)hgt:(\d*)cm( |$)",150,193,passport)
+  hgtIn=matchNumRange(r"(?: |^)hgt:(\d*)in( |$)",59,76,passport)
+  hcl=occursin(r"( |^)hcl:#[[:xdigit:]]{6}( |$)",passport)
+  ecl=occursin(r"( |^)ecl:(amb|blu|brn|gry|grn|hzl|oth)( |$)",passport)
+  pid=occursin(r"( |^)pid:\d{9}( |$)",passport)
+
+  byr && iyr && eyr && (hgtCm || hgtIn) && hcl && ecl && pid
+end
+
+function day4b(data)
+  count(isValidB,passports(data))
+end
+
+
 data = readlines("../../data/day4")
 
 print("Day 4a: ")
 println(day4a(data))
+
+print("Day 4b: ")
+println(day4b(data))
