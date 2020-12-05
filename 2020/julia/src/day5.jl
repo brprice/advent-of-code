@@ -10,7 +10,22 @@ function day5a(data)
   maximum(seatId,data)
 end
 
+function day5b(data)
+  seats=map(seatId,data)
+  for i in seats
+    if in(i+1,seats)
+      continue
+    end
+    if in(i+2,seats)
+      return i+1
+    end
+  end
+end
+
 data = readlines("../../data/day5")
 
 print("Day 5a: ")
 println(day5a(data))
+
+print("Day 5b: ")
+println(day5b(data))
