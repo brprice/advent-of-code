@@ -25,6 +25,24 @@ function day7a(data)
   return length(found)
 end
 
+# How many bags does a shiny gold bag contain?
+# This is a naive solution without caching. The only cleverness is to take care
+# to add groups of bags at a time, rather than one-by-one.
+# This turns out to be plenty fast enough!
+function day7b(data)
+  ans=0
+  todo=data["shiny gold"]
+  while !isempty(todo)
+    (n,b) = pop!(todo)
+    ans += n
+    next=map(data[b]) do (n1,b1)
+      return (n*n1,b1)
+    end
+    append!(todo,next)
+  end
+  return ans
+end
+
 # Read input as a dict. dict[k]=[(ni,bi)...] means
 # bags of type k contain ni bags of type bi...
 data = Dict{String,Array{Tuple{Int,String}}}()
@@ -48,3 +66,4 @@ open("../../data/day7","r") do io
 end
 
 println("Day 7a: ",day7a(data))
+println("Day 7b: ",day7b(data))
