@@ -43,6 +43,33 @@ function day7b(data)
   return ans
 end
 
+# this is also just matrix asteration in the normal ring R
+# given M[i,j]=number of bags of type j directly inside bag i
+# then M^n[i,j]=number of bags of type j n levels below bag i
+# so M+ = M + M^2 + M^3 + ... = (I-M)^(-1)-I = M(I-M)^(-1)
+# is s.t. M+[i,j]=number of bags of type j somewhere inside bag i
+# so result is sum(M+["shiny gold",:])
+using LinearAlgebra
+function day7b2(data)
+  index=Dict{String,Int}()
+  for (i,k) in enumerate(keys(data))
+    index[k]=i
+  end
+  n=length(index)
+  M=Matrix{Float64}(undef,n,n)
+#  M=Matrix{Rational}(undef,n,n)
+  for (bi, i) in index
+    dataI=Dict(map(xy->(xy[2],xy[1]),data[bi]))
+    for (bj, j) in index
+      M[i,j]=get(dataI,bj,0)
+    end
+  end
+  Id=Matrix{Float64}(I,n,n)
+#  Id=Matrix{Rational}(I,n,n)
+  Mplus=(Id-M)^(-1)-Id
+  return sum(Mplus[index["shiny gold"],:])
+end
+
 # Read input as a dict. dict[k]=[(ni,bi)...] means
 # bags of type k contain ni bags of type bi...
 data = Dict{String,Array{Tuple{Int,String}}}()
@@ -66,4 +93,6 @@ open("../../data/day7","r") do io
 end
 
 println("Day 7a: ",day7a(data))
-println("Day 7b: ",day7b(data))
+datatmp=deepcopy(data)
+println("Day 7b: ",day7b(datatmp))
+println("Day 7b, via matrix asteration: ",day7b2(data))
