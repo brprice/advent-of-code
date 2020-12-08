@@ -31,16 +31,39 @@ function step!(program)
   return program
 end
 
-# What is the value of accumulator immediately before an instruction is run for
-# a second time
-function day8a(code)
+@enum RunResult Terminate Loop
+function run(program)
   seenIP = Set{Int}()
-  program = Program(code)
-  while !in(program.ip,seenIP)
+  while !in(program.ip,seenIP) && program.ip <= length(program.code)
     push!(seenIP,program.ip)
     step!(program)
   end
+  reason = program.ip <= length(program.code) ? Loop : Terminate
+  return (reason,program)
+end
+
+# What is the value of accumulator immediately before an instruction is run for
+# a second time
+function day8a(code)
+  (_,program) = run(Program(code)) # assume it loops, as today's question claims
   return program.acc
+end
+
+# Change exactly one nop to a jmp or vice versa so it terminates (by running off
+# the end of the program).
+# What is the accumulator when it terminates?
+function day8b(code)
+  # Nothing fancy here, just brute force. Still plenty fast enough
+  for (i,ins) in enumerate(code)
+    if ins.op === NOP || ins.op === JMP
+      newcode = copy(code)
+      newcode[i] = Instr(ins.op===NOP ? JMP : NOP, ins.arg)
+      (reason,program)=run(Program(newcode))
+      if reason === Terminate
+        return program.acc
+      end
+    end
+  end
 end
 
 program=map(readlines("../../data/day8")) do l
@@ -59,3 +82,4 @@ program=map(readlines("../../data/day8")) do l
 end
 
 println("Day 8a: ",day8a(program))
+println("Day 8b: ",day8b(program))
