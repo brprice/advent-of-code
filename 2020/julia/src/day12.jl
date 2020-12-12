@@ -25,6 +25,33 @@ function day12a(instrs)
   return(abs(pos[1])+abs(pos[2]))
 end
 
+function day12b(instrs)
+  pos=(0,0)
+  waypoint=(10,1)
+  for i in instrs
+    if i.op === N
+      waypoint = waypoint .+ i.val .* (0,1)
+    elseif i.op === S
+      waypoint = waypoint .+ i.val .* (0,-1)
+    elseif i.op === E
+      waypoint = waypoint .+ i.val .* (1,0)
+    elseif i.op === W
+      waypoint = waypoint .+ i.val .* (-1,0)
+    elseif i.op === L
+      for i in 1:i.val
+        waypoint = (-waypoint[2] , waypoint[1])
+      end
+    elseif i.op === R
+      for i in 1:i.val
+        waypoint = (waypoint[2] , -waypoint[1])
+      end
+    elseif i.op === F
+      pos = pos .+ i.val .* waypoint
+    end
+  end
+  return(abs(pos[1])+abs(pos[2]))
+end
+
 @enum Op N S E W L R F
 struct Instr
   op :: Op
@@ -48,3 +75,4 @@ data = map(readlines("../../data/day12")) do l
 end
 
 println("Day 12a: ",day12a(data))
+println("Day 12b: ",day12b(data))
