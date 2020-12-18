@@ -3,6 +3,11 @@ function day18a(data)
   sum(evalA,data)
 end
 
+# Do arithmetic, but + has higher precedence than *
+function day18b(data)
+  sum(evalB,data)
+end
+
 function evalA(n :: Int)
   return n
 end
@@ -31,6 +36,44 @@ function evalA(arith)
     end
   end
   return ans
+end
+
+function evalB(n :: Int)
+  return n
+end
+
+function evalB(n :: AbstractString)
+  return n
+end
+
+function evalB(arith)
+  arith1 = map(evalB,arith)
+  # now arith1 should be an alternating list of integers and
+  # operations ("+" or "*"), of odd length
+  if length(arith1) == 1
+    return arith1[1]
+  end
+  # We don't bother about error handling, instead assuming that the
+  # input is the right format
+  arith2 = splitarray(arith1,"*")
+  prod(ss->sum(filter(s->typeof(s)==Int,ss)),arith2)
+end
+
+# Why does the builtin "split" only work for strings?
+function splitarray(xs,spl)
+  splitted = []
+  i = 1
+  while i <= length(xs)
+    j = findnext(isequal(spl),xs,i)
+    if j === nothing
+      j = length(xs)+1
+    end
+    if i<j
+      push!(splitted,xs[i:j-1])
+    end
+    i = j+1
+  end
+  return splitted
 end
 
 function parse(s)
@@ -63,3 +106,4 @@ end
 
 data = map(parse,readlines("../../data/day18"))
 println(day18a(data))
+println(day18b(data))
