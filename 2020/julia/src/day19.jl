@@ -2,6 +2,13 @@ function day19a(rules,msgs)
   count(m->matches(m,rules,0),msgs)
 end
 
+# in part b, we change rules 8 and 11, so the grammar now has loops
+function day19b(rules,msgs)
+  rules[8] = [[42],[42,8]]
+  rules[11] = [[42,31],[42,11,31]]
+  count(m->matches(m,rules,0),msgs)
+end
+
 function matches(m,rules,i)
   any(match(m,rules,i)) do m
     isempty(m[2])
@@ -11,7 +18,7 @@ end
 function match(m,rules,i)
   r = rules[i]
   if typeof(r) == Char
-    if m[1] == r
+    if !isempty(m) && m[1] == r
       return [(m[1]^1,m[2:end])]
     else
       return []
@@ -61,3 +68,4 @@ open("../../data/day19","r") do h
 end
 
 println(day19a(rules,msgs))
+println(day19b(rules,msgs))
