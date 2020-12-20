@@ -1,5 +1,7 @@
+# Coordinate convention: (y,x), negative is up and left
+
 # Do a jigsaw puzzle
-function day20a!(tiles)
+function solvepuzzle!(tiles)
   @assert isSimple(tiles) "non-simple puzzle?"
   # Since the puzzle is simple, we can just pick a first piece and grow the
   # puzzle from there, as there will be no ambiguity.
@@ -27,13 +29,16 @@ function day20a!(tiles)
     end
   end
 
+  return puzzle
+end
+
+function day20a(puzzle)
   # just assume the puzzle is square and complete
   fsts = map(x->x[1],collect(keys(puzzle)))
   snds = map(x->x[2],collect(keys(puzzle)))
   f1,f2 = extrema(fsts)
   s1,s2 = extrema(snds)
   return puzzle[f1,s1][1] * puzzle[f2,s1][1] * puzzle[f1,s2][1] * puzzle[f2,s2][1]
-
 end
 
 function getedge(tile,dir)
@@ -105,6 +110,51 @@ function isSimple(tiles)
   noPair == 4*sqrtN && hasPair == 4*n-noPair
 end
 
+# Now find patterns in the completed puzzle
+function day20b(puzzle)
+  # First: remove borders and stitch image together
+  # just assume the puzzle is square and complete
+  fsts = map(x->x[1],collect(keys(puzzle)))
+  snds = map(x->x[2],collect(keys(puzzle)))
+  ym,yM = extrema(fsts)
+  xm,xM = extrema(snds)
+  h,w = size(first(puzzle)[2][2])
+  img = Matrix{Bool}(undef,(yM-ym+1)*(h-2),(xM-xm+1)*(w-2))
+  for p in puzzle
+    Y,X = p[1]
+    t = p[2][2]
+    for x in 2:w-1
+      for y in 2:h-1
+        img[(Y-ym)*(h-2)+y-1,(X-xm)*(w-2)+x-1] = t[y,x]
+      end
+    end
+  end
+
+  # Second: zero out all the monsters, but may have to flip or rotate the image first
+  monster = [(0,18),(1,0),(1,5),(1,6),(1,11),(1,12),(1,17),(1,18),(1,19),(2,1),(2,4),(2,7),(2,10),(2,13),(2,16)]
+  foundMonster = false
+  for f in [identity,rotr90,rotr90,rotr90,permutedims,rotr90,rotr90,rotr90]
+    img = f(img)
+    yM,xM = size(img)
+    for x in 1:xM-19
+      for y in 1:yM-2
+        if all(p->img[y+p[1],x+p[2]],monster)
+	  foundMonster = true
+          for p in monster
+	    img[y+p[1],x+p[2]]=false
+	  end
+        end
+      end
+    end
+    if foundMonster
+      break
+    end
+  end
+
+  # Third: how many waves are left
+  return count(img)
+end
+
 tiles = Dict{Int,Matrix{Bool}}()
 open("../../data/day20","r") do h
   while !eof(h)
@@ -118,4 +168,6 @@ open("../../data/day20","r") do h
   end
 end
 
-println(day20a!(tiles))
+puzzle = solvepuzzle!(tiles)
+println(day20a(puzzle))
+println(day20b(puzzle))
