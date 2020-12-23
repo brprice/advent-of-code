@@ -27,5 +27,67 @@ function day23a(cups0)
   return join(map(string,others))
 end
 
+function shuffle(cups,rounds)
+# This time, care about efficiency. Keep track of the label of the "current cup"
+# and, for each label, which label is to its left, and which to its right.
+# Assume that 'cups' is a permutation of 1:N for some N
+  N = length(cups)
+  cur = cups[1]
+  left = similar(cups)
+  right = similar(cups)
+  prv = cups[end]
+  for i in cups
+    right[prv] = i
+    left[i] = prv
+    prv = i
+  end
+
+  for _ in 1:rounds
+    a = right[cur]
+    b = right[a]
+    c = right[b]
+    nxt = right[c]
+    ins = cur
+    while in(ins,[cur,a,b,c])
+      ins -= 1
+      if ins == 0
+        ins = N
+      end
+    end
+    insNxt = right[ins]
+
+    right[cur] = nxt
+    left[nxt] = cur
+    right[ins] = a
+    left[a] = ins
+    right[c] = insNxt
+    left[insNxt] = c
+    cur = nxt
+  end
+return (left,right)
+end
+
+function day23aEfficient(cups)
+  _, rs = shuffle(cups,100)
+  ret = ""
+  c = 1
+  r = rs[c]
+  while r != 1
+    ret = ret*string(r)
+    c = r
+    r = rs[c]
+  end
+  return ret
+end
+
+function day23b(cups)
+  _, rs = shuffle(cups,10000000)
+  rs[1]*rs[rs[1]]
+end
+
+
 cups = map(x->parse(Int,x),split(chomp(read("../../data/day23",String)),""))
 println(day23a(cups))
+#@time println(day23aEfficient(cups)) # this is slightly quicker, but day23a is ~0.2s, so neither here or there really!
+append!(cups,maximum(cups)+1:1000000)
+println(day23b(cups))
