@@ -6,18 +6,17 @@
 # Look at the end point of each path, how many
 # of those points appear an odd number of times
 # as an endpoint?
-function day24a(tiles)
-  return count(values(tiles))
+function day24a(black)
+  return length(black)
 end
 
-# "true" means "is black"
-function tiles(paths)
-  ends = Dict()
+function blackTiles(paths) :: Set{Tuple{Int,Int}}
+  ends = Set()
   for e in endpoint.(paths)
-    if in(e,keys(ends))
-      ends[e] = !ends[e]
+    if in(e,ends)
+      delete!(ends,e)
     else
-      ends[e] = true
+      push!(ends,e)
     end
   end
   return ends
@@ -43,51 +42,38 @@ const dir = Dict(
   "se" => (0,-1)
 )
 
-
 # Another cellular automaton
 # I should really generalise this code and reuse it in
 # the three(?) days that have needed it, but by this
-# point it seems rather pointless!
-function day24b(tiles)
-# I didn't know whether off-the-map tiles should be flipped,
-# but it turns out they do need to be (i.e. we are working on
-# an infinite grid)
-# I can get away with only keeping track of the black tiles if so,
-# and thus not rewriting as much from dayA.
-# This should also be quicker, as the black tiles are sparser
-# (alternately, I could just drop the white tiles before looping,
-# changing our runtime from ~7s to ~1s)
-# TODO: the above!
+# point it seems rather pointless
+function day24b(black)
+# Contrary to julia's claim that it usually inferrs all
+# types, so type annotations don't improve speed,
+# the two in this function (adjs and next) do make a
+# large difference (from ~.8s to ~.3s, in julia 1.0.4)
   for _ in 1:100
-    adjs = Dict()
-    # We are careful to record adjs[x] = 0 where appropriate
-    # (rather than leaving that key out)
-    for kv in tiles
-      k = kv.first
-      v = kv.second
+    adjs = Dict{Tuple{Int,Int},Int}()
+    for l in black
       for d in values(dir)
-        kd = k.+d
-        b = v ? 1 : 0
-        adjs[kd] = b + get(adjs,kd,0)
+        ld = l .+ d
+        adjs[ld] = 1 + get(adjs,ld,0)
       end
     end
-    next = Dict()
+    # NB: black tiles with 0 black neighbours turn white
+    # but they do not appear in adjs, so we obey this rule
+    # by just not doing anything special here!
+    next = Set{Tuple{Int,Int}}()
     for kv in adjs
       k = kv.first
       bns = kv.second
-      v = get(tiles,k,false)
-      if v && (bns == 0 || bns > 2)
-        next[k] = false
-      elseif !v && bns == 2
-        next[k] = true
-      else
-        next[k] = v
+      isblack = in(k,black)
+      if (isblack && (bns == 1 || bns == 2)) || (!isblack && bns == 2)
+        push!(next,k)
       end
     end
-    # don't keep track of all the white tiles
-    tiles = filter(x->x.second,next)
+    black = next
   end
-  day24a(tiles)
+  length(black)
 end
 
 data = map(readlines("../../data/day24")) do line
@@ -106,6 +92,6 @@ data = map(readlines("../../data/day24")) do line
   return dirs
 end
 
-ts = tiles(data)
-println(day24a(ts))
-println(day24b(ts))
+black = blackTiles(data)
+println(day24a(black))
+println(day24b(black))
