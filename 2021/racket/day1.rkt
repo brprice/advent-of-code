@@ -43,4 +43,15 @@
       identity
       (sequence-map f (in-parallel s (sequence-tail s 1))))))
 
-(with-data part1)
+(printf "part 1: ~a\n"
+	(with-data part1))
+
+(define (part2 s)
+  (part1 (sequence-map +
+		       (in-parallel s
+				    (sequence-tail s 1)
+				    (sequence-tail s 2)))))
+
+
+(printf "part 2: ~a\n"
+	(with-data part2))
