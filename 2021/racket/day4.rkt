@@ -51,16 +51,21 @@
 EOF
 "\n")))))
 
+(define (lines b)
+  (append b (map (lambda (i) (map (lambda (l) (list-ref l i))
+				  b))
+		 (range (length (car b))))))
+
+(define (done1? ls) (and (ormap null? ls) ls))
+
+(define (step n bls)
+  (map (lambda (ls) (map (lambda (l) (set-remove l n)) ls)) bls))
+
 ; Easiest to convert boards into all rows and also all columns
 ; this doubles the memory usage, but is easier to work with
 (define/match (part1 d)
   [((cons c bs))
-   (let* ([lines (lambda (b)
-		   (append b (map (lambda (i) (map (lambda (l) (list-ref l i)) b))
-				  (range (length (car b))))))]
-	  [done1? (lambda (ls) (and (ormap null? ls) ls))]
-	  [done? (lambda (bls) (ormap done1? bls))]
-	  [step (lambda (n bls) (map (lambda (ls) (map (lambda (l) (set-remove l n)) ls)) bls))])
+   (let ([done? (lambda (bls) (ormap done1? bls))])
      (let go ([n #f] [ns c] [bls (map lines bs)])
        (match (done? bls)
 	 [#f (go (car ns) (cdr ns) (step (car ns) bls))]
@@ -68,3 +73,16 @@ EOF
 
 (printf "part 1: ~a\n"
 	(with-data part1))
+
+(define/match (part2 d)
+  [((cons c bs))
+   (let ([done? (lambda (bls) (andmap done1? bls))]
+	 [step (lambda (n bls)
+		 (step n (filter (compose not done1?) bls)))])
+     (let go ([n #f] [ns c] [bls (map lines bs)])
+       (match (done? bls)
+	 [#f (go (car ns) (cdr ns) (step (car ns) bls))]
+	 [x (* n (/ (apply + (apply append x)) 2))])))])
+
+(printf "part 2: ~a\n"
+	(with-data part2))
