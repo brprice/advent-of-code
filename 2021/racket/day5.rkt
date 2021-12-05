@@ -34,19 +34,39 @@ EOF
   [((cons (cons x1 y1) (cons x2 y2)))
    (or (eq? x1 x2) (eq? y1 y2))])
 
-; NB: only for orthogonal lines - I expect to have to change this in part 2
+; The points on the diagonal line where x1<x2
+; diagonal means that (x2 - x1) = |y2 - y1|
+(define (points-diag x1 y1 x2 y2)
+  (define (ypthelp) (if (< y1 y2) + -))
+  (define (pt i) (cons (+ x1 i) ((ypthelp) y1 i)))
+  (map pt (range (- x2 x1 -1))))
+
+; NB: only for orthogonal and diagonal lines
+; the puzzle guarantees that these are the only cases we need to handle
 (define/match (points l)
   [((cons (cons x1 y1) (cons x2 y2)))
    (cond
      [(eq? x1 x2) (map (lambda (y) (cons x1 y)) (range (min y1 y2) (add1 (max y1 y2))))]
-     [(eq? y1 y2) (map (lambda (x) (cons x y1)) (range (min x1 x2) (add1 (max x1 x2))))])])
+     [(eq? y1 y2) (map (lambda (x) (cons x y1)) (range (min x1 x2) (add1 (max x1 x2))))]
+     ; otherwise, diagonal
+     [(< x1 x2) (points-diag x1 y1 x2 y2)]
+     [else (points-diag x2 y2 x1 y1)])])
 
 ; Easiest (but not very efficient) to convert vent line data into sets of points
-(define (part1 vls)
+(define (count-multi-covered vls)
   (let* ([covers (make-hash)]
 	 [ins (lambda (ps) (for-each (lambda (p) (dict-update! covers p add1 0)) ps))])
-    (stream-for-each (compose ins points) (stream-filter ortho? vls))
+    (stream-for-each (compose ins points) vls)
     (length (filter (lambda (c) (< 1 c)) (hash-values covers)))))
+
+(define (part1 vls)
+  (count-multi-covered (stream-filter ortho? vls)))
 
 (printf "part 1: ~a\n"
 	(with-data part1))
+
+(define (part2 vls)
+  (count-multi-covered vls))
+
+(printf "part 2: ~a\n"
+	(with-data part2))
