@@ -20,8 +20,15 @@
 		   (cons (sub1 a) n))))])
     (dict-update am1 6 (lambda (n) (+ x n)) 0 )))
 
-(define (part1 ns)
-  (apply + (map cdr ((apply compose (make-list 80 step)) (age-map ns)))))
+(define (total-fish steps starting-ages)
+  (apply + (map cdr ((apply compose (make-list steps step)) (age-map starting-ages)))))
+
+(define (part1 ns) (total-fish 80 ns))
 
 (printf "part 1: ~a\n"
 	(with-data part1))
+
+(define (part2 ns) (total-fish 256 ns))
+
+(printf "part 2: ~a\n"
+	(with-data part2))
