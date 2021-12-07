@@ -18,3 +18,16 @@
 
 (printf "part 1: ~a\n"
 	(with-data part1))
+
+; part2: mean
+(define (part2 xs)
+  (let ([mean (/ (apply + xs) (length xs))]
+	[f (lambda (m x) (let ([xm (abs (- x m))]) (* xm (add1 xm))))]
+	[fuel (lambda (m) (/ (apply + (map (lambda (x)
+					     (let ([xm (abs (- x m))]) (* xm (add1 xm))))
+					   xs))
+			     2))])
+    (min (fuel (floor mean)) (fuel (ceiling mean)))))
+
+(printf "part 2: ~a\n"
+	(with-data part2))
