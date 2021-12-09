@@ -49,11 +49,44 @@
 	      (< here (apply vec2-lookup xs a)))
 	    adj)))
 
-(define (part1 xs)
-  (for*/sum ([j (vec2-height xs)]
+(define (lowpoints xs)
+  (for*/list ([j (vec2-height xs)]
 	     [i (vec2-width xs)]
 	     #:when (local-minimum xs i j))
-	    (add1 (vec2-lookup xs i j))))
+	    (list i j)))
+
+(define (part1 xs)
+  (for/sum ([ij (lowpoints xs)])
+	   (add1 (vec2-lookup xs (car ij) (cadr ij)))))
 
 (printf "part 1: ~a\n"
 	(with-data part1))
+
+(define-syntax-rule (define/pm (f p ...) b)
+  (define/match (f _)
+		[(p) ... b]))
+
+
+(define (find-basin xs i j)
+  (define/match (go q seen)
+		[((cons ij q) seen) #:when (member ij seen) (go q seen)]
+		[((cons (list i j) q) seen)
+		 ;(printf "\n~a ~a" i j)
+		 ;(printf " | ~a" (adjacent-idx xs i j))
+		 ;(printf " | ~a" q)
+		 ;(printf " | ~a" (append (adjacent-idx xs i j) q))
+		 (go (append (filter (lambda (xy) (not (eq? 9 (apply vec2-lookup xs xy)))) (adjacent-idx xs i j)) q) (set-add seen (list i j)))
+		 ]
+		[((list) seen) seen])
+  (go (list (list i j)) '()))
+
+(define (part2 xs)
+  (apply * (take
+	     (sort (map (compose length
+				 (curry apply find-basin xs))
+			(lowpoints xs))
+		   >)
+	     3)))
+
+(printf "part 2: ~a\n"
+	(with-data part2))
