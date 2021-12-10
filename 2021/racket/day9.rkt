@@ -62,11 +62,6 @@
 (printf "part 1: ~a\n"
 	(with-data part1))
 
-(define-syntax-rule (define/pm (f p ...) b)
-  (define/match (f _)
-		[(p) ... b]))
-
-
 (define (find-basin xs i j)
   (define/match (go q seen)
 		[((cons ij q) seen) #:when (member ij seen) (go q seen)]
