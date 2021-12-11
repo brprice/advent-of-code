@@ -38,6 +38,7 @@
 (define (vec2-height xs) (caddr xs))
 (define (vec2-lookup xs i j) (vector-ref (car xs) ((cadddr xs) i j)))
 (define (vec2-set! xs i j v) (vector-set! (car xs) ((cadddr xs) i j) v))
+(define (vec2-data xs) (car xs))
 
 (define (adjacent-idx v2 i j)
   (for*/list ([u '(-1 0 1)]
@@ -83,3 +84,12 @@
 
 (printf "part 1: ~a\n"
 	(with-data part1))
+
+(define (part2 xs)
+  (do ([i 0 (add1 i)])
+    ((eq? (vector-length (vec2-data xs)) (vector-count (curry eq? 0) (vec2-data xs))) i)
+    (step xs)
+    ))
+
+(printf "part 2: ~a\n"
+	(with-data part2))
