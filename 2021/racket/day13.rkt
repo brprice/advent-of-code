@@ -62,3 +62,29 @@
 
 (printf "part 1: ~a\n"
 	(with-data part1))
+
+(define (fmt xs)
+  (let ([mx 0] [my 0])
+    (set-for-each xs (lambda (p)
+		    (set! mx (max mx (car p)))
+		    (set! my (max my (cadr p)))
+		    ))
+    (for ([y (add1 my)])
+	 (for ([x (add1 mx)])
+	      (if (set-member? xs (list x y))
+		(printf "#")
+		(printf " ")))
+	 (printf "\n"))))
+
+(define (part2 xs)
+  (match xs
+	 [(list pts folds)
+	  (for-each (lambda (f) (fold! f pts)) folds)
+	  (fmt pts)
+	  ]))
+
+(printf "part 2:\n~a"
+	(let ([p (open-output-string)])
+	  (parameterize ([current-output-port p])
+	    (with-data part2))
+	  (get-output-string p)))
