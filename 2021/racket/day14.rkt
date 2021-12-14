@@ -59,3 +59,33 @@
 
 (printf "part 1: ~a\n"
 	(with-data part1))
+
+; part 2: we have to be a bit smarter: just track how many of each sort of pair we have
+(define (step-pairs ps rules)
+  (let ([ret '()])
+    (for ([pc ps])
+	 (let* ([p (car pc)]
+		[c (cdr pc)]
+		[r (rule rules p)])
+	   (set! ret (dict-update ret (list (car p) r) (curry + c) 0))
+	   (set! ret (dict-update ret (list r (cadr p)) (curry + c) 0))))
+    ret))
+
+(define (part2 xs)
+  (match xs
+	 [(list start rules)
+	  (let* ([pairs (map (lambda (g) (cons (car g) (length g))) (group-by identity (for/list ([a start] [b (cdr start)]) (list a b))))]
+		 [f (lambda (x) (step-pairs x rules))]
+		 [fs (apply compose (make-list 40 f))]
+		 [end (fs pairs)]
+		 ; NB: every letter will be double-counted, except the first and last
+		 ; so start off with one extra of those, so everything is exactly double counted
+		 [letter-counts (list (cons (car start) 1) (cons (last start) 1))])
+		(for ([pc end])
+		     (set! letter-counts (dict-update letter-counts (caar pc) (curry + (cdr pc)) 0))
+		     (set! letter-counts (dict-update letter-counts (cadar pc) (curry + (cdr pc)) 0)))
+		(let ([counts (map (lambda (lc) (/ (cdr lc) 2)) letter-counts)])
+		  (- (apply max counts) (apply min counts))))]))
+
+(printf "part 2: ~a\n"
+	(with-data part2))
