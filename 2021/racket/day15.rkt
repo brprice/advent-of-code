@@ -39,6 +39,15 @@
 (define (vec2-set! xs i j v) (vector-set! (car xs) ((cadddr xs) i j) v))
 (define (vec2-data xs) (car xs))
 
+(define (build-vec2 w h f)
+  (vec2 w h
+	(build-vector (* w h)
+		      (lambda (ij)
+			(call-with-values
+			  (thunk (quotient/remainder ij w))
+			  (lambda (j i) (f i j)))))))
+
+
 (define (adjacent-idx xs i j)
   (filter (lambda (a) (and (< -1 (car a) (vec2-width xs))
                            (< -1 (cadr a) (vec2-height xs))))
@@ -73,3 +82,21 @@
 
 (printf "part 1: ~a\n"
 	(with-data part1))
+
+; part 2: let's not be smart, just work on the 5^2-fold larger graph
+(define (part2 xs)
+  (let* ([xw (vec2-width xs)]
+         [xh (vec2-height xs)]
+	 [ys (build-vec2 (* 5 xw) (* 5 xh)
+			 (lambda (i j)
+			   (let-values ([(iq ir) (quotient/remainder i xw)]
+			                [(jq jr) (quotient/remainder j xh)])
+			     ; urgh, wraps like 8,9,1,2 not 8,9,0,1
+			     ;(remainder (+ iq jq (vec2-lookup xs ir jr)) 10)
+			     (add1 (remainder (+ -1 iq jq (vec2-lookup xs ir jr)) 9)))))])
+    (vec2-lookup (shortest-paths ys 0 0)
+		 (sub1 (vec2-width ys))
+		 (sub1 (vec2-height ys)))))
+
+(printf "part 2: ~a\n"
+	(with-data part2))
