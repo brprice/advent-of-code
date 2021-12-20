@@ -119,3 +119,11 @@
 
 (printf "part 1: ~a\n"
 	(with-data part1))
+
+(define (part2 t)
+  (for*/fold ([m 0])
+	     ([i (length t)] [j (length t)] #:unless (eq? i j))
+       (max m (magnitude (add (list (list-ref t i) (list-ref t j)))))))
+
+(printf "part 2: ~a\n"
+	(with-data part2))
