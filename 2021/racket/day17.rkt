@@ -31,24 +31,44 @@
 ; n < 2*|y_min| is necessary
 ;
 ; Given x and n, the best we can do is V being the greatest integer in the
-; above range, if any.
+; above range, if any. However, we also need to ensure the x position after n
+; steps is in the target area also.
 ;
 ; The highest y position is then on step n=V, when the y velocity is 0,
 ; i.e. y_V = V*(V + 1)/2
-(define (part1 xrange yrange)
-  (let* ([xmax (apply max xrange)]
+
+; returns a list of (vel_x vel_y n), where after n steps starting at said
+; velocity, we hit the target
+(define (all-trajectories xrange yrange)
+  (let* ([xmin (apply min xrange)]
+	 [xmax (apply max xrange)]
          [ymin (apply min yrange)]
          [ymax (apply max yrange)]
 	 [vxmax xmax]
 	 [nmax (* -2 ymin)]
-	 [bestv 0]
-	 [height (lambda (v) (if (< 0 v) (quotient (* v (add1 v)) 2) 0))])
-    (for* ([x vxmax] [n (add1 nmax)] #:unless (eq? 0 n))
+	 [t (lambda (i) (quotient (* i (add1 i)) 2))]
+	 [xpos (lambda (vx n) (- (t vx) (if (> n vx) 0 (t (- vx n)))))]
+	 [traj '()])
+    (for* ([x (add1 vxmax)] [n (add1 nmax)] #:unless (eq? 0 n) #:when (<= xmin (xpos x n) xmax))
 	  (let* ([l (+ (/ ymin n) (/ (sub1 n) 2))]
-		 [h (+ (/ ymax n) (/ (sub1 n) 2))]
-		 [v (floor h)])
-	    (when (<= l v) (set! bestv (max bestv v)))))
-    (height bestv)))
+		 [h (+ (/ ymax n) (/ (sub1 n) 2))])
+	    (for ([v (range (ceiling l) (add1 (floor h)))])
+		 (when (<= l v) (set! traj (cons (list x v n) traj))))))
+    traj))
+
+(define (part1 tgtx tgty)
+  (define (height v) (if (< 0 v) (quotient (* v (add1 v)) 2) 0))
+  (height (apply max (map cadr (all-trajectories tgtx tgty)))))
 
 (printf "part 1: ~a\n"
 	(with-data part1))
+
+(define (part2 tgtx tgty)
+  (length
+    (remove-duplicates
+      (map
+	(lambda (t) (list (car t) (cadr t)))
+	(all-trajectories tgtx tgty)))))
+
+(printf "part 2: ~a\n"
+	(with-data part2))
