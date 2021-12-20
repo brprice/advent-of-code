@@ -91,20 +91,33 @@
 ; Brute force: we (roughly) consider each pair of sensors. For each, consider
 ; each pair of (beacon-from-left, beacon-from-right) and see if they overlap
 ; enough. This lets us iteratively build the map.
-(define (part1 scans)
-  (let* ([known (list (car scans))]
+(define (stitch scans)
+  (let* ([known (list (list '(0 0 0) (car scans)))]
 	 [todo (make-queue)]
 	 [step (lambda ()
 	       (let ([scan (dequeue! todo)]
 		     [done #f])
 		 (for [(k known)] #:break done
-		      (let ([m (match-some-orientation k scan)])
+		      (let ([m (match-some-orientation (cadr k) scan)])
 			(when m
-			  (set! known (cons (cadr m) known))
+			  (set! known (cons m known))
 			  (set! done #t))))
 		 (unless done (enqueue! todo scan))))])
     (for-each (curry enqueue! todo) (cdr scans))
-    (do () ((queue-empty? todo) (length (remove-duplicates (apply append known)))) (step))))
+    (do () ((queue-empty? todo) known) (step))))
 
-(printf "part 1: ~a\n"
-	(part1 data))
+; Since it takes roughly a minute to run, we do both parts together, to avoid
+; recomputing the stitched map
+(define (part12 scans)
+  (define stitched (stitch scans))
+  (define beacons (map cadr stitched))
+  (printf "part 1: ~a\n"
+	  (length (remove-duplicates (apply append beacons))))
+  (define scanners (map car stitched))
+  (define s (length scanners))
+  (define (d u v) (apply + (map abs (sub u v))))
+  (apply max
+	 (for*/list ([i s] [w (drop scanners (add1 i))])
+		    (d (list-ref scanners i) w))))
+
+(part12 data)
