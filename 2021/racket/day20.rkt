@@ -59,3 +59,9 @@
 
 (printf "part 1: ~a\n"
 	(part1 data))
+
+(define (part2 data)
+  (set-count (caddr ((apply compose (make-list 50 enhance)) data))))
+
+(printf "part 2: ~a\n"
+	(part2 data))
