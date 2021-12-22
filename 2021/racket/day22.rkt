@@ -66,3 +66,55 @@
 
 (printf "part 1: ~a\n"
 	(part1 data))
+
+(define (size r)
+  (match r
+	 [(list (list xm xM) (list ym yM) (list zm zM))
+	  (* (add1 (- xM xm)) (add1 (- yM ym)) (add1 (- zM zm)))]))
+
+(define (intersection q r)
+  (match q
+	 [(list (list qxm qxM) (list qym qyM) (list qzm qzM))
+	  (match r
+		 [(list (list rxm rxM) (list rym ryM) (list rzm rzM))
+		  (let ([ixm (max qxm rxm)]
+			[ixM (min qxM rxM)]
+		        [iym (max qym rym)]
+			[iyM (min qyM ryM)]
+		        [izm (max qzm rzm)]
+			[izM (min qzM rzM)])
+		    (if (and (<= ixm ixM) (<= iym iyM) (<= izm izM))
+		      (list (list ixm ixM) (list iym iyM) (list izm izM))
+		      #f))])]))
+
+(define (part2 data)
+  (define (in-ex p cur todo)
+    (match todo
+	   ['() (let ([s (size cur)]) (if p s (- s)))]
+	   [(cons r rs)
+	    (let ([i (intersection cur r)])
+	      (if i
+		(+ (in-ex (not p) i rs) (in-ex p cur rs))
+		(in-ex p cur rs)))]))
+  (define (tails xs)
+    (match xs
+	   ['() '()]
+	   [(cons h t) (cons xs (tails t))]))
+  ; calculate the size of a union
+  (define (inclusion-exclusion rs)
+    (for/sum ([ht (tails rs)])
+	     (in-ex #t (car ht) (cdr ht))))
+  ; if data_i is "on", add (size (set-delete data_i (union data_i+1 data_i+2 ...)))
+  (for/sum ([ht (tails data)])
+	   (match ht
+		  [(cons (cons 'on a) t)
+		   (- (size a)
+		      (inclusion-exclusion
+			(filter identity
+				(map
+				  (lambda (b) (intersection a (cdr b)))
+				  t))))]
+		  [(cons (cons 'off _) _) 0])))
+
+(printf "part 2: ~a\n"
+	(part2 data))
