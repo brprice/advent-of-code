@@ -44,12 +44,13 @@
 				  (format "input of same form as ~s" example-burrow)
 				  b)]))
 
-(define (burrow u l)
+(define (mkhash kvs)
   (apply hash
-	 (append-map (lambda (p) (list (car p) (cdr p)))
-		     (append
-		       (map (lambda (a x) (cons (list x 2) a)) u '(3 5 7 9))
-		       (map (lambda (a x) (cons (list x 3) a)) l '(3 5 7 9))))))
+	 (append-map (lambda (p) (list (car p) (cdr p))) kvs)))
+
+(define (burrow u l)
+  (mkhash (append (map (lambda (a x) (cons (list x 2) a)) u '(3 5 7 9))
+		  (map (lambda (a x) (cons (list x 3) a)) l '(3 5 7 9)))))
 
 (define test-data
   (parse example-burrow))
@@ -57,8 +58,8 @@
 (define data
   (parse (port->string (open-input-file "../data/day23"))))
 
-(define/match (neighbours p)
-	      [((list x 1))
+(define/match (neighbours room-depth p)
+	      [(_ (list x 1))
 	       (filter
 		 (compose not null?)
 		 (list
@@ -71,20 +72,21 @@
 		   (if (and (< 1 x 11) (odd? x))
 		     (list x 2)
 		     '())))]
-	      [((list x 2)) (list (list x 1) (list x 3))]
-	      [((list x 3)) (list (list x 2))])
+	      [(_ (list x d))
+	       (filter (lambda (q) (<= 1 (cadr q) room-depth))
+		       (list (list x (sub1 d)) (list x (add1 d))))])
 
 (define (occupied b p)
   (dict-has-key? b p))
 
-(define (reachable b p)
+(define (reachable room-depth b p)
   (define (loop rch todo)
     (match todo
 	   ['() rch]
 	   [(cons p rest)
 	    (if (or (set-member? rch p) (occupied b p))
 	      (loop rch rest)
-	      (loop (set-add rch p) (append (neighbours p) rest)))]))
+	      (loop (set-add rch p) (append (neighbours room-depth p) rest)))]))
   (set-remove (loop '() (list p)) p))
 
 (define (cost a p q)
@@ -104,7 +106,7 @@
 (define/match (correct-room a)
 	      [("A") 3] [("B") 5] [("C") 7] [("D") 9])
 
-(define (moves b p)
+(define (moves room-depth b p)
   (define (outside-room q)
     (and (eq? (cadr q) 1)
 	 (member (car q) '(3 5 7 9))))
@@ -112,19 +114,20 @@
     (let ([r (correct-room a)])
       (if (not (eq? (cadr q) 1))
 	(and (eq? (car q) r)
-	     (equal? a (dict-ref b (list r 2) a))
-	     (equal? a (dict-ref b (list r 3) a)))
+	     (for/and ([d (range 2 (add1 room-depth))])
+		      (equal? a (dict-ref b (list r d) a))))
 	#t)))
   (define (hall-room q)
     (if (eq? (cadr p) 1)
       (not (eq? (cadr q) 1))
       #t))
   (define (stupid-move a q)
-    (or (equal? p (list (correct-room a) 3))
-	(and (equal? p (list (correct-room a) 2))
-	     (equal? (dict-ref b (list (correct-room a) 3) #f) a))
-	(and (eq? 2 (cadr q))
-	     (not (occupied b (list (car q) 3))))))
+    (or
+      (and (eq? (car p) (correct-room a))
+	   (for/and ([d (range (add1 (cadr p)) (add1 room-depth))])
+		    (equal? (dict-ref b (list (correct-room a) d) #f) a)))
+      (and (< 1 (cadr q) room-depth)
+	   (not (occupied b (list (car q) (add1 (cadr q))))))))
   (define (ok-move a q)
     (and (not (outside-room q))
 	 (own-room a q)
@@ -133,7 +136,7 @@
   (let ([a (dict-ref b p)]
 	[b-a (dict-remove b p)])
     (apply append
-	   (for/list ([r (reachable b-a p)])
+	   (for/list ([r (reachable room-depth b-a p)])
 		     (if (ok-move a r)
 		       (list (cons (cost a p r) (dict-set b-a r a)))
 		       '())))))
@@ -144,9 +147,12 @@
 	     (and (< (correct-room (cdr v)) (caar u))
 		  (< (caar v) (correct-room (cdr u)))))))
 
-(define (all-moves b)
+(define (all-moves room-depth b)
   (filter (compose not deadlock cdr)
-	  (apply append (dict-map b (lambda (p _) (moves b p))))))
+	  (apply append (dict-map b (lambda (p _) (moves room-depth b p))))))
+
+(define (all-moves-1 b)
+  (all-moves 3 b))
 
 (define (search init moves heur tgt)
   (define (cmp x y) (<= (+ (car x) (cadr x)) (+ (car y) (cadr y))))
@@ -173,15 +179,45 @@
 (define target-data
   (parse target-burrow))
 
+(define (heuristic p)
+  (for/sum ([(q a) (in-dict p)])
+	   (match q
+		  [(list x y)
+		   (if (eq? (correct-room a) x)
+		     0
+		     (cost a (list x y) (list (correct-room a) 1)))])))
+
 (define (part1 data)
-  (car (search data all-moves
-	       (lambda (p) (for/sum ([(q a) (in-dict p)])
-				    (match q
-					   [(list x y)
-					    (if (eq? (correct-room a) x)
-					      0
-					      (cost a (list x y) (list (correct-room a) 1)))])))
+  (car (search data
+	       all-moves-1
+	       heuristic
 	       (curry equal? target-data))))
 
 (printf "part 1: ~a\n"
 	(part1 data))
+
+(define (all-moves-2 b)
+  (all-moves 5 b))
+
+(define (part2 data)
+  (define extra-init '(((3 3) . "D") ((3 4) . "D")
+		       ((5 3) . "C") ((5 4) . "B")
+		       ((7 3) . "B") ((7 4) . "A")
+		       ((9 3) . "A") ((9 4) . "C")))
+  (define extra-targ '(((3 3) . "A") ((3 4) . "A")
+		       ((5 3) . "B") ((5 4) . "B")
+		       ((7 3) . "C") ((7 4) . "C")
+		       ((9 3) . "D") ((9 4) . "D")))
+  (define (add-extra extra data)
+    (mkhash (append extra
+		    (dict-map data
+			      (lambda (k v) (cons (list (car k)
+							(if (eq? (cadr k) 3) 5 (cadr k)))
+						  v))))))
+  (car (search (add-extra extra-init data)
+	       all-moves-2
+	       heuristic
+	       (curry equal? (add-extra extra-targ target-data)))))
+
+(printf "part 2: ~a\n"
+	(part2 data))
