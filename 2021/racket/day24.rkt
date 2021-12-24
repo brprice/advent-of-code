@@ -132,7 +132,7 @@
 ;   z <- 26*z + Di + Ci
 ;  or
 ;   z <- if (Di = (z % 26) - A) then (z/26) else (26*(z/26)+Di+ci)
-(define (part1 prog)
+(define (constraints prog)
   (let* ([epochs-full (compile prog)]
 	 [epochs (map fourth epochs-full)])
     (when (memf (lambda (v) (member v '(w x y))) (flatten epochs))
@@ -168,22 +168,40 @@
       ; Now collect and solve constraints.
       ; We only get constraints of the form Di = Dj + k, when Di is the input
       ; that is of the second form popping the corresponding first-form Dj off
-      ; the stack. We maximise the model number simply by maximising each Di.
-      ; We accumulate this as we go, but note that D0 is the most significant digit,
-      ; i.e. the 10^13 position
-      (letrec ([loop (match-lambda** ; args: model-number-so-far, stack, epochs
-		       [(n '() '()) n]
-		       [(n stk (cons (list 'add-digit j k) epochs))
-			(loop n (cons (list j k) stk) epochs)]
-		       [(n (cons (list j k) stk) (cons (list 'ite i l _) epochs))
-			(let* ([kl (+ k l)]
-			       [m (if (<= 0 kl)
-				    (+ (* (expt 10 (- 13 i)) 9)
-				       (* (expt 10 (- 13 j)) (- 9 kl)))
-				    (+ (* (expt 10 (- 13 j)) 9)
-				       (* (expt 10 (- 13 i)) (+ 9 kl))))])
-			  (loop (+ n m) stk epochs))])])
-	(loop 0 '() parsed)))))
+      ; the stack.
+      (letrec ([loop (match-lambda** ; args: stack, epochs
+		       [('() '()) '()]
+		       [(stk (cons (list 'add-digit j k) epochs))
+			(loop (cons (list j k) stk) epochs)]
+		       [((cons (list j k) stk) (cons (list 'ite i l _) epochs))
+			(cons (list i j (+ k l)) (loop stk epochs))])])
+	(loop '() parsed)))))
+
+(define (part1 data)
+  ; Grab the constraints, of the form
+  ;  (list i j k)  meaning Di = Dj + k
+  ; We maximise the model number simply by maximising each Di.
+  ; NB: that D0 is the most significant digit, i.e. the 10^13 position
+  (for/sum ([c (constraints data)])
+	   (match c
+		  [(list i j k) #:when (<= 0 k)
+				(+ (* (expt 10 (- 13 i)) 9) (* (expt 10 (- 13 j)) (- 9 k)))]
+		  [(list i j k) #:when (> 0 k)
+				(+ (* (expt 10 (- 13 j)) 9) (* (expt 10 (- 13 i)) (+ 9 k)))])))
 
 (printf "part 1: ~a\n"
 	(part1 data))
+
+(define (part2 data)
+  ; Like part1, but minimising the number
+  (for/sum ([c (constraints data)])
+	   (match c
+		  [(list i j k) #:when (<= 0 k)
+				(+ (* (expt 10 (- 13 i)) (add1 k))
+				   (* (expt 10 (- 13 j)) 1))]
+		  [(list i j k) #:when (> 0 k)
+				(+ (* (expt 10 (- 13 j)) (add1 (- k)))
+				   (* (expt 10 (- 13 i)) 1))])))
+
+(printf "part 2: ~a\n"
+	(part2 data))
