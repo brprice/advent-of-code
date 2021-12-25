@@ -68,3 +68,5 @@ v.v..>>v.v
 
 (printf "part 1: ~a\n"
 	(part1 data))
+
+; NB: there was only one part today!
