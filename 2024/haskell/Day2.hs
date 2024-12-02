@@ -41,8 +41,27 @@ isSafe =
 part1 :: [[Int]] -> Int
 part1 = length . filter isSafe
 
+data Damped = Damped | Undamped
+
+safety2' :: (Damped, Safety) -> Int -> [(Damped, Safety)]
+safety2' = \cases
+  (Damped, s) x -> [(Damped, safety' s x)]
+  (Undamped, s) x -> [(Damped, s), (Undamped, safety' s x)]
+
+-- Eagerly Drop Unsafes
+safety2 :: [Int] -> [(Damped, Safety)]
+safety2 =
+  foldl'
+    (\us x -> filter (\case (_, Unsafe) -> False; _ -> True) $ concatMap (flip safety2' x) us)
+    [(Undamped, Empty)]
+
+part2 :: [[Int]] -> Int
+part2 = length . filter (not . null . safety2)
+
 main :: IO ()
 main = do
   xs <- parse <$> getData
   putStrLn "Part 1"
   print $ part1 xs
+  putStrLn "Part 2"
+  print $ part2 xs
