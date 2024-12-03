@@ -2,9 +2,11 @@
 
 module Main where
 
+import Control.Monad.State.Strict (evalState, get, put)
 import Data.Char (ord)
 import Data.Functor ((<&>))
 import Data.List (foldl')
+import Data.Maybe (catMaybes)
 
 getData :: IO String
 getData = readFile "../data/day3"
@@ -35,6 +37,8 @@ fromDigits = foldl' (\acc d -> 10 * acc + d) 0
 -- Parsing would be easy with regex, but it is simple enough to write myself
 data Token
   = Mul
+  | Do
+  | Dont
   | ParenL
   | ParenR
   | Comma
@@ -46,6 +50,8 @@ tokenize :: String -> [Token]
 tokenize = \case
   [] -> []
   'm' : 'u' : 'l' : ss -> Mul : tokenize ss
+  'd' : 'o' : 'n' : '\'' : 't' : ss -> Dont : tokenize ss
+  'd' : 'o' : ss -> Do : tokenize ss
   '(' : ss -> ParenL : tokenize ss
   ')' : ss -> ParenR : tokenize ss
   ',' : ss -> Comma : tokenize ss
@@ -53,20 +59,42 @@ tokenize = \case
     | Just (n, ss') <- readInteger (s : ss) -> I n : tokenize ss'
     | otherwise -> Garbage s : tokenize ss
 
-data Instr = Mult Integer Integer
+data Instr
+  = Mult Integer Integer
+  | Enable
+  | Disable
   deriving (Show)
 
 parse :: [Token] -> [Instr]
 parse = \case
   [] -> []
   Mul : ParenL : I a : Comma : I b : ParenR : ts -> Mult a b : parse ts
+  Do : ParenL : ParenR : ts -> Enable : parse ts
+  Dont : ParenL : ParenR : ts -> Disable : parse ts
   _ : ts -> parse ts
 
 part1 :: [Instr] -> Integer
-part1 = sum . map (\(Mult x y) -> x * y)
+part1 = sum . map (\case (Mult x y) -> x * y; _ -> 0)
+
+part2 :: [Instr] -> Integer
+part2 =
+  sum
+    . catMaybes
+    . flip evalState True
+    . traverse
+      ( \case
+          Enable -> put True >> pure Nothing
+          Disable -> put False >> pure Nothing
+          Mult x y ->
+            get >>= \case
+              True -> pure $ Just $ x * y
+              False -> pure Nothing
+      )
 
 main :: IO ()
 main = do
   xs <- parse . tokenize <$> getData
   putStrLn "Part 1"
   print $ part1 xs
+  putStrLn "Part 2"
+  print $ part2 xs
