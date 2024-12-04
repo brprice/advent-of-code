@@ -37,8 +37,8 @@ parse s =
             (zip [0 ..] l) <&> \(x, c) ->
               (I2 (x, y), c)
 
-stencils :: [[I2]]
-stencils =
+stencils1 :: [[I2]]
+stencils1 =
   let f dxdy = scanl (+) (I2 (0, 0)) $ replicate 3 $ I2 dxdy
       dirs = [(dx, dy) | dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx /= 0 || dy /= 0)]
    in map f dirs
@@ -46,7 +46,22 @@ stencils =
 part1 :: UArray I2 Char -> Int
 part1 ws =
   let isXmas is = Just "XMAS" == traverse (ws !?) is
-      xmass' i = filter isXmas $ map (map (i +)) stencils
+      xmass' i = filter isXmas $ map (map (i +)) stencils1
+      xmass = concatMap xmass' $ indices ws
+   in length xmass
+
+stencils2 :: [([I2], [I2])]
+stencils2 =
+  let u = map I2 [(-1, -1), (0, 0), (1, 1)]
+      d = map I2 [(-1, 1), (0, 0), (1, -1)]
+   in [(f u, g d) | f <- [id, reverse], g <- [id, reverse]]
+
+part2 :: UArray I2 Char -> Int
+part2 ws =
+  let isXmas is = Just "MAS" == traverse (ws !?) is
+      xmass' i =
+        filter (\(l, r) -> isXmas l && isXmas r) $
+          map (\(l, r) -> (map (i +) l, map (i +) r)) stencils2
       xmass = concatMap xmass' $ indices ws
    in length xmass
 
@@ -55,3 +70,5 @@ main = do
   xs <- parse <$> getData
   putStrLn "Part 1"
   print $ part1 xs
+  putStrLn "Part 2"
+  print $ part2 xs
