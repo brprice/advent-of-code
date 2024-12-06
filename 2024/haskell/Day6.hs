@@ -3,6 +3,7 @@
 module Main where
 
 import Data.Either (partitionEithers)
+import Data.Foldable (forM_)
 import Data.Maybe (mapMaybe)
 import Data.Set qualified as S
 
@@ -10,8 +11,10 @@ getData :: IO String
 getData = readFile "../data/day6"
 
 data Dir = L | U | R | D
+  deriving (Eq)
 
 data Guard = G {pos :: (Int, Int), dir :: Dir}
+  deriving (Eq)
 
 data Maze = M
   { width, height :: Int,
@@ -72,11 +75,31 @@ step m =
             then Just m {guard = turnRight $ guard m}
             else Just m {guard = (guard m) {pos = n}}
 
+traceRoute :: Maze -> [Guard]
+traceRoute = map guard . iterateMaybe step
+
 part1 :: Maze -> Int
-part1 m = length $ S.fromList $ map (pos . guard) $ iterateMaybe step m
+part1 = length . S.fromList . map pos . traceRoute
+
+isCycle :: (Eq a) => [a] -> Bool
+isCycle l = go (drop 1 l) (drop 2 l)
+  where
+    go slow fast
+      | null fast = False
+      | head slow == head fast = True
+      | otherwise = go (drop 1 slow) (drop 2 fast)
+
+part2 :: Maze -> Int
+part2 m =
+  let origPath = map pos $ traceRoute m
+      addObstr p = m {obstr = S.insert p $ obstr m}
+      locs = S.delete (head origPath) $ S.fromList origPath
+   in length $ filter (isCycle . traceRoute . addObstr) $ S.toList locs
 
 main :: IO ()
 main = do
   xs <- parse <$> getData
   putStrLn "Part 1"
   print $ part1 xs
+  putStrLn "Part 2"
+  print $ part2 xs
