@@ -13,6 +13,7 @@ data Grid a = Grid
     -- and (width-1,height-1) is bottom-right
     cts :: M.Map (Int, Int) a
   }
+  deriving (Show)
 
 parseGrid :: (Char -> Maybe a) -> String -> Grid a
 parseGrid f s =
