@@ -1,11 +1,13 @@
 module Utils
   ( Grid (..),
     parseGrid,
+    invertMap,
   )
 where
 
 import Data.Map qualified as M
 import Data.Maybe (mapMaybe)
+import Data.Set qualified as S
 
 data Grid a = Grid
   { width, height :: Int,
@@ -26,3 +28,6 @@ parseGrid f s =
           height = length ls,
           cts = M.fromList cts
         }
+
+invertMap :: (Ord k, Ord v) => M.Map k v -> M.Map v (S.Set k)
+invertMap = M.fromListWith (<>) . map (\(k, v) -> (v, S.singleton k)) . M.toList
