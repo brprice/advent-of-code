@@ -1,11 +1,13 @@
+{-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Main where
 
-import Data.Either (partitionEithers)
-import Data.Foldable (forM_)
-import Data.Maybe (mapMaybe)
+import Data.Map qualified as M
 import Data.Set qualified as S
+import Utils (Grid (Grid, cts, height, width), parseGrid)
 
 getData :: IO String
 getData = readFile "../data/day6"
@@ -21,29 +23,20 @@ data Maze = M
     obstr :: S.Set (Int, Int),
     guard :: Guard
   }
+  deriving (Eq)
 
 parse :: String -> Maze
 parse s =
-  let ls = lines s
-      l' y =
-        mapMaybe
-          ( \case
-              (_, '.') -> Nothing
-              (x, '#') -> Just (Left (x, y))
-              (x, '<') -> Just (Right ((x, y), L))
-              (x, '^') -> Just (Right ((x, y), U))
-              (x, '>') -> Just (Right ((x, y), R))
-              (x, 'v') -> Just (Right ((x, y), D))
-          )
-          . zip [0 ..]
-      ls' = partitionEithers . concatMap (uncurry l') . zip [0 ..]
-      (obstr, [guard]) = ls' ls
-   in M
-        { width = length (head ls),
-          height = length ls,
-          obstr = S.fromList obstr,
-          guard = uncurry G guard
-        }
+  let f = \case
+        '.' -> Nothing
+        '#' -> Just (Left ())
+        '<' -> Just (Right L)
+        '^' -> Just (Right U)
+        '>' -> Just (Right R)
+        'v' -> Just (Right D)
+      Grid {width, height, cts} = parseGrid f s
+      (obstrs, M.toList -> [guard]) = M.mapEither id cts
+   in M {width, height, obstr = M.keysSet obstrs, guard = uncurry G guard}
 
 iterateMaybe :: (a -> Maybe a) -> a -> [a]
 iterateMaybe f x =
@@ -68,7 +61,7 @@ turnRight (G p d) = G p $ case d of
 step :: Maze -> Maybe Maze
 step m =
   let n@(x, y) = step1 (pos $ guard m) (dir $ guard m)
-   in if x < 0 || y < 0 || x >= width m || y >= height m
+   in if x < 0 || y < 0 || x >= m.width || y >= m.height
         then Nothing
         else
           if S.member n $ obstr m
