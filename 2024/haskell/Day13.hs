@@ -45,8 +45,13 @@ solvePuzzle (P (a, b) (c, d) (e, f)) =
 part1 :: [Puzzle] -> Integer
 part1 = sum . map (\(a, b) -> 3 * a + b) . mapMaybe solvePuzzle
 
+part2 :: [Puzzle] -> Integer
+part2 = part1 . map (\(P a b (x, y)) -> P a b (x + 10000000000000, y + 10000000000000))
+
 main :: IO ()
 main = do
   xs <- parse <$> getData
   putStrLn "Part 1"
   print $ part1 xs
+  putStrLn "Part 2"
+  print $ part2 xs
