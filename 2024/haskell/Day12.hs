@@ -36,7 +36,9 @@ insert m a (UF u) = UF $ M.insertWith (error "key already exists") a (Root 1 m) 
 find :: (Ord a) => a -> UnionFind m a -> (Int, m, a, UnionFind m a)
 find a uf@(UF u) = case u M.! a of
   Root s m -> (s, m, a, uf)
-  Parent b -> let (s, m, r, UF u') = find b uf in (s, m, r, UF $ M.insert a (Parent r) u')
+  Parent b -> case u M.! b of
+    Root s m -> (s, m, b, uf)
+    Parent c -> find c $ UF $ M.insert a (Parent c) u
 
 union :: (Ord a, CommutativeMonoid m) => a -> a -> UnionFind m a -> UnionFind m a
 union a b u0 =
