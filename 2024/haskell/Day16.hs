@@ -56,6 +56,7 @@ search nbd start target = go S.empty (singleton 0 start)
     go seen h = case viewMin h of
       Just (c, s, h')
         | target s -> c
+        | S.member s seen -> go seen h'
         | otherwise -> go (S.insert s seen) $ foldr (merge . uncurry singleton) h'
             $ filter (\(_,s') -> S.notMember s' seen)
             $ map (first (+ c)) $ nbd s
