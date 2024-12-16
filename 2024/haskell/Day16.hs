@@ -2,9 +2,12 @@
 
 module Main where
 
-import Data.Bifunctor (first)
+import Data.Bifunctor (Bifunctor (second), first)
+import Data.Foldable (minimumBy)
 import Data.Map qualified as M
+import Data.Ord (comparing)
 import Data.Set qualified as S
+import Data.Tuple (swap)
 import Numeric.Natural (Natural)
 import Utils (Grid (Grid, cts), parseGrid)
 
@@ -50,20 +53,47 @@ viewMin = \case
   Nil -> Nothing
   Node a b l r -> Just (a, b, merge l r)
 
-search :: Ord s => (s -> [(Natural, s)]) -> s -> (s -> Bool) -> Natural
-search nbd start target = go S.empty (singleton 0 start)
+shortestPathLengths :: (Ord s) => (s -> [(Natural, s)]) -> s -> [(Natural, s)]
+shortestPathLengths nbd start = go S.empty (singleton 0 start)
   where
     go seen h = case viewMin h of
+      Nothing -> []
       Just (c, s, h')
-        | target s -> c
         | S.member s seen -> go seen h'
-        | otherwise -> go (S.insert s seen) $ foldr (merge . uncurry singleton) h'
-            $ filter (\(_,s') -> S.notMember s' seen)
-            $ map (first (+ c)) $ nbd s
+        | otherwise ->
+            (c, s)
+              : go
+                (S.insert s seen)
+                ( foldr (merge . uncurry singleton) h' $
+                    filter (\(_, s') -> S.notMember s' seen) $
+                      map (first (+ c)) $
+                        nbd s
+                )
 
-part1 :: Maze -> Natural
-part1 m =
-  search
+cw :: Dir -> Dir
+cw = \case
+  N -> E
+  E -> S
+  S -> W
+  W -> N
+
+ccw :: Dir -> Dir
+ccw = \case
+  N -> W
+  E -> N
+  S -> E
+  W -> S
+
+fwd :: (Int, Int) -> Dir -> (Int, Int)
+fwd (x, y) = \case
+  N -> (x, y - 1)
+  E -> (x + 1, y)
+  S -> (x, y + 1)
+  W -> (x - 1, y)
+
+pathLengths :: Maze -> [(Natural, ((Int, Int), Dir))]
+pathLengths m =
+  shortestPathLengths
     ( \((x, y), d) ->
         (1000, ((x, y), cw d))
           : (1000, ((x, y), ccw d))
@@ -72,26 +102,33 @@ part1 m =
             else []
     )
     (start m)
-    (`elem` [(end m, d) | d <- [N, E, S, W]])
+
+part1 :: Maze -> Natural
+part1 m = fst $ head $ filter (\(_, (p, _)) -> p == end m) $ pathLengths m
+
+part2 :: Maze -> Int
+part2 m = S.size $ go S.empty (S.singleton e)
   where
-    cw = \case
-      N -> E
-      E -> S
-      S -> W
-      W -> N
-    ccw = \case
-      N -> W
-      E -> N
-      S -> E
-      W -> S
-    fwd (x, y) = \case
-      N -> (x, y - 1)
-      E -> (x + 1, y)
-      S -> (x, y + 1)
-      W -> (x - 1, y)
+    pls = M.fromList $ map (swap . first fromIntegral) $ pathLengths m
+    e = minimumBy (comparing $ flip M.lookup pls) $ map (end m,) [N, E, S, W]
+    go done todo = case S.maxView todo of
+      Nothing -> done
+      Just (s, todo') ->
+        let c = pls M.! s
+            s' =
+              map snd $
+                filter
+                  (\(c', s') -> Just c' == pls M.!? s')
+                  [ (c - 1000, second ccw s),
+                    (c - 1000, second cw s),
+                    (c - 1, first (flip fwd $ cw $ cw $ snd s) s)
+                  ]
+         in go (S.insert (fst s) done) (foldr S.insert todo' s')
 
 main :: IO ()
 main = do
   xs <- parse <$> getData
   putStrLn "Part 1"
   print $ part1 xs
+  putStrLn "Part 2"
+  print $ part2 xs
