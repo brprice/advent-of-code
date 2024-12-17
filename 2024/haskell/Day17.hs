@@ -4,8 +4,9 @@ module Main where
 
 import Control.Monad.State.Strict (State, evalState, get, gets, modify)
 import Data.Array (Array, array, bounds, (!))
-import Data.Bits (xor)
+import Data.Bits (shiftR, xor)
 import Data.List (intercalate)
+import Data.Monoid (First (First, getFirst))
 
 getData :: IO String
 getData = readFile "../data/day17"
@@ -95,8 +96,80 @@ runMachine = do
 part1 :: Machine -> String
 part1 = intercalate "," . map show . evalState runMachine
 
+{-
+-- A naive search is far too slow
+part2 :: Machine -> Int
+part2 m = fst $ head $ filter ((== elems (prog m)) . snd) $ map (\a -> (a,evalState runMachine m{ra=a})) [0..]
+-}
+
+{- Reverse engineering:
+Program: 2,4,1,3,7,5,1,5,0,3,4,3,5,5,3,0
+
+Writing out op names, combo args in [_]
+bst [4]
+bxl 3
+cdv [5]
+bxl 5
+adv [3]
+bxc _
+out [5]
+jnz 0
+
+Expanding combos
+bst A
+bxl 3
+cdv B
+bxl 5
+adv 3
+bxc _
+out B
+jnz 0
+
+Pseudocode (^ is xor, ** is pow)
+do
+    B = A%8
+    B = B^3
+    C = A/(2**B)
+    B = B^5
+    A = A/(2**3)
+    B = B^C
+    output B%8
+while A/=0
+
+Inlining
+do
+    B = (A%8)^3
+    C = A/(2**B) % 8
+    output B^C^5
+    A = A/8
+while A/=0
+
+Note that we output 1 element for each 3 bits of A, thus A has 16 octal digits,
+and each output only depends on the "bits of A to the left"
+
+We can search from the left end of A:
+- work out the left octal digit options to output the last element of program
+- recurse to find the next digit options (these depend on choices made in first)
+- take the smallest A thus found
+-}
+
+-- This is hard-coded from reverse-engineering my input
+part2 :: Maybe Integer
+part2 = getFirst $ findOcts 0 $ reverse prog
+  where
+    prog = [2, 4, 1, 3, 7, 5, 1, 5, 0, 3, 4, 3, 5, 5, 3, 0]
+    findOcts prev [] = First $ Just prev
+    findOcts prev (tgt : tgts) =
+      let os =
+            filter
+              (\o -> tgt == o `xor` 6 `xor` (((prev * 8 + o) `shiftR` (fromIntegral o `xor` 3)) `mod` 8))
+              [0 .. 7]
+       in mconcat $ map (\o -> findOcts (prev * 8 + o) tgts) os
+
 main :: IO ()
 main = do
   xs <- parse <$> getData
   putStrLn "Part 1"
   print $ part1 xs
+  putStrLn "Part 2"
+  print part2
