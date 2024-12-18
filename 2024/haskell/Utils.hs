@@ -115,3 +115,4 @@ union a b u0 =
    in if ra == rb then u2 else UF $ M.insert ra ra' $ M.insert rb rb' u2'
 
 instance CommutativeMonoid (Sum Int)
+instance CommutativeMonoid ()
