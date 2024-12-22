@@ -1,8 +1,10 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Main where
 
+import Data.Map.Lazy qualified as ML
 import Data.Map.Strict qualified as M
 import Data.Maybe (mapMaybe)
 import Data.Set qualified as S
@@ -102,8 +104,70 @@ part1 = sum . map (\s -> read (init s) * part1' s)
           l f t = head $ filter ((== t) . snd) $ shortestPathLengths steps f
        in sum $ map ((+ 1) . fst) $ zipWith l ("AAA" : waypoints) waypoints
 
+numLayer2 :: (S.Set (Int, Int), Char -> (Int, Int))
+numLayer2 = (S.fromList $ map f "0123456789A", f)
+  where
+    f = \case
+      '7' -> (0, 0)
+      '8' -> (1, 0)
+      '9' -> (2, 0)
+      '4' -> (0, 1)
+      '5' -> (1, 1)
+      '6' -> (2, 1)
+      '1' -> (0, 2)
+      '2' -> (1, 2)
+      '3' -> (2, 2)
+      '0' -> (1, 3)
+      'A' -> (2, 3)
+
+dirLayer2 :: (S.Set (Int, Int), Char -> (Int, Int))
+dirLayer2 = (S.fromList $ map f "^A<v>", f)
+  where
+    f = \case
+      '^' -> (1, 0)
+      'A' -> (2, 0)
+      '<' -> (0, 1)
+      'v' -> (1, 1)
+      '>' -> (2, 1)
+
+moves :: (S.Set (Int, Int), Char -> (Int, Int)) -> Char -> Char -> [String]
+moves (layerPos, layerF) (layerF -> from@(sx, sy)) (layerF -> to@(tx, ty)) =
+  go
+    from
+    to
+    (if tx < sx then (-1, '<') else (1, '>'))
+    (if ty < sy then (-1, '^') else (1, 'v'))
+  where
+    go s@(sx, sy) t@(tx, ty) h@(hd, hc) v@(vd, vc)
+      | S.notMember s layerPos = []
+      | sx == tx && sy == ty = [""]
+      | sx == tx = [replicate (abs $ ty - sy) vc]
+      | sy == ty = [replicate (abs $ tx - sx) hc]
+      | otherwise = map (hc :) (go (sx + hd, sy) t h v) ++ map (vc :) (go (sx, sy + vd) t h v)
+
+bestDirPads :: M.Map (Int, Char, Char) Natural
+bestDirPads = ML.fromList $ base ++ concatMap induct [1 .. 25]
+  where
+    dirs = "^<v>"
+    keys = "^A<v>"
+    base = [((1, s, t), (+ 1) $ fromIntegral $ length $ head $ moves dirLayer2 s t) | s <- keys, t <- keys]
+    induct n =
+      let f s t = minimum $ map h $ moves dirLayer2 s t
+          h ms = sum $ zipWith (\s t -> bestDirPads M.! (n, s, t)) ('A' : ms) (ms ++ "A")
+       in [((n + 1, s, t), f s t) | s <- keys, t <- keys]
+
+part2 :: [String] -> Natural
+part2 = sum . map (\s -> read (init s) * part2' s)
+  where
+    moveCost ms = sum $ zipWith (\s t -> bestDirPads ML.! (25, s, t)) ('A' : ms) (ms ++ "A")
+    part2' s =
+      let numMoves = zipWith (moves numLayer2) ('A' : s) s
+       in sum $ map (minimum . map moveCost) numMoves
+
 main :: IO ()
 main = do
   xs <- parse <$> getData
   putStrLn "Part 1"
   print $ part1 xs
+  putStrLn "Part 2"
+  print $ part2 xs
