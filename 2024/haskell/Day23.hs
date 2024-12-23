@@ -1,7 +1,7 @@
 module Main where
 
 import Data.Bifunctor (second)
-import Data.List (sort, tails)
+import Data.List (intercalate, sort, tails)
 import Data.Map.Strict qualified as M
 import Data.Set qualified as S
 
@@ -43,8 +43,27 @@ part1 (G g) = S.size $ S.fromList $ concatMap k3Of ts
               pickTwo $
                 S.toList ns
 
+-- only adds "later" vertex
+growClique :: Graph -> S.Set String -> [S.Set String]
+growClique (G g) c = map (`S.insert` c) $ filter f (dropWhile (<= m) $ M.keys g)
+  where
+    m = S.findMax c
+    f v = S.notMember v c && S.isSubsetOf c (g M.! v)
+
+-- in increasing size order
+findCliques :: Graph -> [S.Set String]
+findCliques g@(G g') = go (map S.singleton $ M.keys g')
+  where
+    go [] = []
+    go ss = ss ++ go (growClique g =<< ss)
+
+part2 :: Graph -> String
+part2 = intercalate "," . S.toAscList . last . findCliques
+
 main :: IO ()
 main = do
   xs <- parse <$> getData
   putStrLn "Part 1"
   print $ part1 xs
+  putStrLn "Part 2"
+  print $ part2 xs
