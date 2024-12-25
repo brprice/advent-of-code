@@ -34,3 +34,5 @@ main = do
   xs <- parse <$> getData
   putStrLn "Part 1"
   print $ part1 xs
+
+-- NB: there was only one part today!
